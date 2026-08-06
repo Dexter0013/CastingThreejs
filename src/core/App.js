@@ -1,0 +1,351 @@
+import { Vector3, MathUtils } from 'three';
+
+import { Renderer } from './Renderer.js';
+import { Time } from './Time.js';
+import { CameraRig } from './CameraRig.js';
+import { frame } from './FrameUniforms.js';
+
+import { Environment } from '../world/Environment.js';
+import { Ground } from '../world/Ground.js';
+import { DustMotes } from '../world/DustMotes.js';
+import { ContactShadows } from '../world/ContactShadows.js';
+
+import { AssetLoader } from '../loaders/AssetLoader.js';
+import { CharacterController } from '../animation/CharacterController.js';
+import { WalkController } from '../animation/WalkController.js';
+
+import { InputManager } from '../input/InputManager.js';
+import { PathDrawer } from '../input/PathDrawer.js';
+
+import { ParticleEngine } from '../particles/ParticleEngine.js';
+import { LightPool } from '../effects/LightPool.js';
+import { DecalSystem } from '../effects/GroundDecals.js';
+import { BurstSystem } from '../effects/BurstSphere.js';
+import { CameraShake } from '../effects/CameraShake.js';
+import { ScreenFlash } from '../effects/ScreenFlash.js';
+
+import { AbilityManager } from '../abilities/AbilityManager.js';
+import { PostProcessing } from '../postprocessing/PostProcessing.js';
+
+import { HUD, LoadingScreen } from '../ui/HUD.js';
+import { Editor } from '../ui/Editor.js';
+
+import { settings, ELEMENTS, MODES, MODE_META } from '../config/settings.js';
+
+const HDR_URL = './hdri/spruit_sunrise.hdr';
+
+/**
+ * Application root: owns every subsystem and the frame loop.
+ *
+ * The wiring is deliberately one-directional — App builds the systems, hands
+ * each ability a context object of the shared services, and then does nothing
+ * but order the per-frame updates. No subsystem reaches back into App.
+ */
+export class App {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.time = new Time();
+    this.elapsed = 0;
+    this.paused = false;
+    this._raf = 0;
+
+    /* ---- core ---- */
+    this.renderer = new Renderer(canvas);
+    this.rig = new CameraRig(canvas);
+    this.camera = this.rig.camera;
+
+    this.environment = new Environment(this.renderer, this.camera);
+    this.scene = this.environment.scene;
+
+    /* ---- world ---- */
+    this.ground = new Ground(this.environment);
+    this.dust = new DustMotes();
+    this.contactShadows = new ContactShadows(this.renderer, { size: 2.6, height: 2.4, blur: 2.0 });
+
+    this.scene.add(this.ground.mesh, this.dust.points, this.contactShadows.group);
+    this.dust.setPixelRatio(this.renderer.gl.getPixelRatio());
+
+    /* ---- shared VFX services ---- */
+    this.particles = new ParticleEngine(this.scene);
+    this.lights = new LightPool(this.scene);
+    this.decals = new DecalSystem(this.scene);
+    this.bursts = new BurstSystem(this.scene);
+    this.shake = new CameraShake(this.rig);
+    this.flash = new ScreenFlash();
+
+    this.abilities = new AbilityManager({
+      scene: this.scene,
+      camera: this.camera,
+      environment: this.environment,
+      particles: this.particles,
+      lights: this.lights,
+      decals: this.decals,
+      bursts: this.bursts,
+      shake: this.shake,
+      flash: this.flash
+    });
+
+    /* ---- character ---- */
+    this.character = new CharacterController(this.environment);
+    this.scene.add(this.character.root);
+
+    // Walk mode: the same drawn path, ridden instead of cast.
+    this.walk = new WalkController(this.character, {
+      scene: this.scene,
+      particles: this.particles,
+      lights: this.lights,
+      decals: this.decals,
+      bursts: this.bursts,
+      shake: this.shake
+    });
+
+    /* ---- input ---- */
+    this.input = new InputManager(canvas);
+    this.pathDrawer = new PathDrawer(this.camera);
+    this.scene.add(this.pathDrawer.object3D);
+
+    /* ---- post ---- */
+    this.post = new PostProcessing(this.renderer, this.scene, this.camera);
+
+    /* ---- UI ---- */
+    this.loading = new LoadingScreen();
+    this.hud = new HUD(document.getElementById('hud'));
+    this.editor = new Editor({
+      onClear: () => this.clearEffects(),
+      onToast: (message) => this.hud.showToast(message)
+    });
+
+    this._bindEvents();
+    this._mode = null;
+    this.setMode(settings.mode);
+    this.selectElement(ELEMENTS[0]);
+
+    this._focusPoint = new Vector3();
+  }
+
+  /* ------------------------------------------------------------------ */
+
+  _bindEvents() {
+    this.renderer.onResize((width, height, pixelRatio) => {
+      this.rig.resize(width, height);
+      this.post.setSize(width, height, pixelRatio);
+      this.dust.setPixelRatio(pixelRatio);
+    });
+
+    this.input.on('draw:start', (pointer) => this.pathDrawer.begin(pointer));
+    this.input.on('draw:move', (pointer) => this.pathDrawer.move(pointer));
+    this.input.on('draw:end', () => this.pathDrawer.end());
+
+    this.input.on('element', (index) => this.selectElement(ELEMENTS[index]));
+    this.input.on('action', (action) => this._handleAction(action));
+
+    // One gesture, two meanings — the mode decides what a finished stroke does.
+    this.pathDrawer.on('cast', (curve) => {
+      if (settings.mode === 'walk') {
+        if (!this.walk.begin(curve)) this.hud.showToast('Path too short to ride');
+      } else {
+        this.abilities.cast(curve);
+      }
+    });
+
+    this.hud.onSelect = (element) => this.selectElement(element);
+    this.hud.onMode = (mode) => this.setMode(mode);
+  }
+
+  _handleAction(action) {
+    const index = ELEMENTS.indexOf(this.abilities.selected);
+    switch (action) {
+      case 'nextElement':
+        this.selectElement(ELEMENTS[(index + 1) % ELEMENTS.length]);
+        break;
+      case 'prevElement':
+        this.selectElement(ELEMENTS[(index - 1 + ELEMENTS.length) % ELEMENTS.length]);
+        break;
+      case 'toggleHelp':
+        this.hud.toggleHelp();
+        break;
+      case 'toggleEditor':
+        this.editor.toggle();
+        break;
+      case 'clear':
+        this.clearEffects();
+        this.hud.showToast('Effects cleared');
+        break;
+      case 'togglePause':
+        this.paused = !this.paused;
+        this.hud.showToast(this.paused ? 'Paused' : 'Resumed');
+        break;
+      case 'togglePose': {
+        const pose = this.character.togglePose();
+        this.editor.refresh();
+        this.hud.showToast(pose === 'sitting' ? 'Meditation pose' : 'Standing idle');
+        break;
+      }
+      case 'toggleMode':
+        this.setMode(MODES[(MODES.indexOf(settings.mode) + 1) % MODES.length]);
+        break;
+      default:
+        break;
+    }
+  }
+
+  selectElement(element) {
+    if (!element) return;
+    this.abilities.select(element);
+    this.hud.setElement(element);
+  }
+
+  /**
+   * Switch between casting and walking.
+   *
+   * `settings.mode` is the source of truth — the editor writes it directly and
+   * the frame loop notices — so this is also the sync point for presets and
+   * "reset to defaults".
+   */
+  setMode(mode) {
+    const next = MODES.includes(mode) ? mode : MODES[0];
+    const changed = this._mode !== next;
+    this._mode = next;
+    settings.mode = next;
+
+    if (next !== 'walk') this.walk.cancel();
+    this.hud.setMode(next);
+    if (changed) this.hud.showToast(`${MODE_META[next].hint} — ${MODE_META[next].blurb}`);
+    this.editor.refresh();
+  }
+
+  clearEffects() {
+    this.walk.cancel();
+    this.abilities.clear();
+    this.particles.reset();
+    this.decals.clear();
+    this.bursts.clear();
+    this.lights.reset();
+    this.shake.reset();
+    this.flash.reset();
+    this.pathDrawer.trail.hide();
+  }
+
+  /* ------------------------------------------------------------------ */
+
+  /** Load assets, warm the shader cache, then start the loop. */
+  async load() {
+    const assets = new AssetLoader();
+
+    this.loading.setProgress(0.05, 'Loading environment…');
+    const hdr = await assets.loadHDR(HDR_URL);
+    await this.environment.loadEnvironment(hdr);
+    frame.uEnvMap.value = this.environment.equirect;
+
+    this.loading.setProgress(0.5, 'Loading character…');
+    await this.character.load(assets);
+
+    this.loading.setProgress(0.85, 'Compiling shaders…');
+    // Compile everything up front so the first cast never stutters.
+    await this.renderer.gl.compileAsync(this.scene, this.camera);
+
+    this.loading.setProgress(1, 'Ready');
+    this.loading.hide();
+
+    this.start();
+  }
+
+  start() {
+    this.time.reset();
+    const loop = () => {
+      this._raf = requestAnimationFrame(loop);
+      this.frame();
+    };
+    this._raf = requestAnimationFrame(loop);
+  }
+
+  stop() {
+    cancelAnimationFrame(this._raf);
+  }
+
+  /* ------------------------------------------------------------------ */
+
+  frame() {
+    const gl = this.renderer.gl;
+    gl.info.reset();
+
+    const raw = this.time.tick();
+    const dt = this.paused ? 0 : raw * settings.global.timeScale;
+    this.elapsed += dt;
+
+    /* ---- shared uniforms ---- */
+    frame.uTime.value = this.elapsed;
+    frame.uDelta.value = dt;
+    frame.uShaderIntensity.value = settings.global.shaderIntensity;
+    frame.uGlobalGlow.value = settings.global.glow;
+    frame.uCameraNear.value = this.camera.near;
+    frame.uCameraFar.value = this.camera.far;
+
+    /* ---- simulation ---- */
+    this.renderer.syncSettings();
+    // The editor and the preset system write `settings.mode` directly.
+    if (settings.mode !== this._mode) this.setMode(settings.mode);
+
+    this.environment.setFocus(this.character.position.x, this.character.position.z);
+    this.environment.update();
+    // Walk mode places the character; the controller then animates him there.
+    this.walk.update(dt);
+    this.character.update(dt);
+
+    this.ground.update(this.elapsed);
+    this.dust.update(this.elapsed, this.character.position);
+
+    this.pathDrawer.update(raw); // the preview keeps animating while paused
+    this.abilities.update(dt);
+    this.particles.flush();
+    this.decals.update(dt);
+    this.bursts.update(dt);
+    this.lights.update(dt);
+
+    /* ---- camera ---- */
+    const focus = this.abilities.focus;
+    if (focus) this.rig.lookAt(focus.position, MathUtils.clamp(1 - focus.u * 0.4, 0, 1));
+    this.rig.setAnchor(this.character.position.x, 0, this.character.position.z);
+    this.shake.update(raw);
+    this.flash.update(raw);
+    this.rig.update(raw);
+
+    this.contactShadows.setPosition(this.character.position.x, this.character.position.z);
+    this.contactShadows.render(this.scene);
+
+    /* ---- render ---- */
+    // Exactly one cascade shadow update per frame (see Renderer).
+    gl.shadowMap.needsUpdate = true;
+    this.post.sync(this.elapsed, this.flash);
+    this.post.render();
+
+    this.hud.update(raw, () => ({
+      particles: this.particles.countLive(this.elapsed),
+      calls: gl.info.render.calls,
+      abilities: this.abilities.active.length
+    }));
+  }
+
+  /* ------------------------------------------------------------------ */
+
+  dispose() {
+    this.stop();
+    this.input.dispose();
+    this.pathDrawer.dispose();
+    this.abilities.dispose();
+    this.particles.dispose();
+    this.decals.dispose();
+    this.bursts.dispose();
+    this.lights.dispose();
+    this.walk.dispose();
+    this.character.dispose();
+    this.ground.dispose();
+    this.dust.dispose();
+    this.contactShadows.dispose();
+    this.post.dispose();
+    this.environment.dispose();
+    this.editor.dispose();
+    this.rig.dispose();
+    this.renderer.dispose();
+  }
+}

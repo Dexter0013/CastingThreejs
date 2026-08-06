@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Bending Sandbox — Elemental VFX Playground</title>
+    <link rel="preload" as="fetch" href="./models/Standing%20Idle.fbx" crossorigin />
+    <link rel="stylesheet" href="./src/ui/styles.css" />
+  </head>
+  <body>
+    <canvas id="viewport"></canvas>
+
+    <!-- Boot / loading veil -->
+    <div id="loader" class="loader">
+      <div class="loader__inner">
+        <div class="loader__sigil">
+          <span class="sigil sigil--fire"></span>
+          <span class="sigil sigil--water"></span>
+          <span class="sigil sigil--earth"></span>
+          <span class="sigil sigil--air"></span>
+        </div>
+        <h1 class="loader__title">Bending Sandbox</h1>
+        <div class="loader__bar"><i id="loader-fill"></i></div>
+        <p class="loader__status" id="loader-status">Summoning the elements…</p>
+      </div>
+    </div>
+
+    <!-- Heads-up display (populated by src/ui/HUD.js) -->
+    <div id="hud" class="hud" aria-live="polite"></div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
