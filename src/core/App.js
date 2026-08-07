@@ -40,10 +40,10 @@ const HDR_URL = './hdri/spruit_sunrise.hdr';
  * ability manager a context object of the shared services, and then does nothing
  * but order the per-frame updates. No subsystem reaches back into App.
  *
- * The interaction is a single loop: arm the ability (Q), swing the ground arrow
- * with the mouse, click to fire. `AimController` owns the targeting and emits
- * one `cast` event; App turns that into an ability, a heading for the character
- * and a cooldown.
+ * The interaction is a single loop: select and arm an ability (Q / E), swing the
+ * ground arrow with the mouse, click to fire. `AimController` owns the targeting
+ * and emits one `cast` event; App turns that into an ability, a heading for the
+ * character and a cooldown.
  */
 export class App {
   constructor(canvas) {
@@ -53,8 +53,11 @@ export class App {
     this.paused = false;
     this._raf = 0;
 
-    /** Seconds left before the ability can be armed again. */
-    this.cooldown = 0;
+    /**
+     * Seconds left before each ability can be armed again. Per element, so
+     * spending one slot never locks the other out.
+     */
+    this.cooldowns = new Map(ELEMENTS.map((element) => [element, 0]));
 
     /* ---- core ---- */
     this.renderer = new Renderer(canvas);
@@ -113,10 +116,14 @@ export class App {
     });
 
     this._bindEvents();
-    this.abilities.select(ELEMENTS[0]);
-    this.hud.setElement(ELEMENTS[0], { silent: true });
+    this.selectAbility(ELEMENTS[0], { silent: true });
 
     this._focusPoint = new Vector3();
+  }
+
+  /** The ability currently in the slot. */
+  get element() {
+    return this.abilities.selected;
   }
 
   /* ------------------------------------------------------------------ */
@@ -133,21 +140,24 @@ export class App {
       this.aim.point(pointer);
       this.aim.confirm();
     });
-    this.input.on('action', (action) => this._handleAction(action));
+    this.input.on('action', (action, slot) => this._handleAction(action, slot));
 
     this.aim.on('cast', (origin, direction, distance) => this._cast(origin, direction, distance));
     this.aim.on('reject', () => this.hud.showToast('Too close — aim further out'));
 
-    this.hud.onAbility = () => this.armAbility();
+    this.hud.onAbility = (element) => this.armAbility(element);
   }
 
-  _handleAction(action) {
+  _handleAction(action, slot) {
     switch (action) {
-      case 'ability':
-        // Pressing the key again puts an armed cast away, as it does in a MOBA.
-        if (this.aim.isArmed) this.aim.cancel();
-        else this.armAbility();
+      case 'ability': {
+        const element = ELEMENTS[slot] ?? this.element;
+        // Pressing the *same* key again puts an armed cast away, as it does in a
+        // MOBA; pressing a different one swaps the slot without disarming.
+        if (this.aim.isArmed && element === this.element) this.aim.cancel();
+        else this.armAbility(element);
         break;
+      }
       case 'cancel':
         this.aim.cancel();
         break;
@@ -177,18 +187,33 @@ export class App {
     }
   }
 
-  /** Arm the ability, unless it is still cooling down. */
-  armAbility() {
-    if (this.cooldown > 0) {
+  /**
+   * Put an ability in the slot. The aim indicator and the HUD both follow,
+   * because `range` and `minRange` are the ability's, not the app's.
+   */
+  selectAbility(element, options = {}) {
+    if (!ELEMENTS.includes(element)) return;
+    this.abilities.select(element);
+    this.aim.setElement(element);
+    this.hud.setElement(element, options);
+  }
+
+  /** Select an ability and arm it, unless it is still cooling down. */
+  armAbility(element = this.element) {
+    if ((this.cooldowns.get(element) ?? 0) > 0) {
       this.hud.showToast('Not ready');
       return;
     }
+    // Selecting before arming means the arrow is already drawn to the new
+    // ability's range on the frame it appears.
+    if (element !== this.element) this.selectAbility(element);
     this.aim.arm();
   }
 
   _cast(origin, direction, distance) {
-    this.abilities.cast(origin, direction, distance);
-    this.cooldown = Math.max(0, settings.ice.cooldown);
+    const element = this.element;
+    this.abilities.cast(origin, direction, distance, element);
+    this.cooldowns.set(element, Math.max(0, settings[element].cooldown));
 
     // Snap onto the shot and throw the body into it.
     this.character.setFacing(this.aim.facing);
@@ -277,7 +302,9 @@ export class App {
     }
     this.character.update(dt);
 
-    this.cooldown = Math.max(0, this.cooldown - raw);
+    for (const [element, remaining] of this.cooldowns) {
+      if (remaining > 0) this.cooldowns.set(element, Math.max(0, remaining - raw));
+    }
 
     this.ground.update(this.elapsed);
     this.dust.update(this.elapsed, this.character.position);
@@ -306,7 +333,9 @@ export class App {
     this.post.render();
 
     /* ---- readouts ---- */
-    this.hud.setCooldown(this.cooldown, Math.max(0.001, settings.ice.cooldown));
+    for (const element of ELEMENTS) {
+      this.hud.setCooldown(element, this.cooldowns.get(element) ?? 0, settings[element].cooldown);
+    }
     this.hud.setArmed(this.aim.isArmed);
     this.hud.update(raw, () => ({
       particles: this.particles.countLive(this.elapsed),

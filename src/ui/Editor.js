@@ -8,12 +8,14 @@ import { PresetManager } from './PresetManager.js';
  * Every control binds straight to a field in `config/settings.js`. Because all
  * shaders, particle systems, lights and post passes *read* those fields each
  * frame, no controller needs an onChange handler: moving a slider updates the
- * ice field that is already standing, the next cast, the environment and the
- * post stack simultaneously, with no rebuild and no shader recompilation.
+ * ice field that is already standing, the bolt that is already in the air, the
+ * next cast, the environment and the post stack simultaneously, with no rebuild
+ * and no shader recompilation.
  *
  * That holds while the simulation is paused (`P`), which is the point — the
- * silhouette of a frozen eruption is the thing worth tuning, and `IceAbility`
- * re-resolves every crystal from these values on a zero-length frame.
+ * silhouette of a frozen eruption and the shape of a frozen bolt are the things
+ * worth tuning, and both abilities re-resolve themselves from these values on a
+ * zero-length frame.
  */
 export class Editor {
   /**
@@ -32,15 +34,18 @@ export class Editor {
     this._buildGlobal();
     this._buildAim();
     this._buildIce();
+    this._buildThunder();
     this._buildEnvironment();
     this._buildPost();
     this._buildCamera();
     this._buildCharacter();
 
-    // Everything starts closed except the ability itself — that is what the
-    // sandbox is for.
-    this.gui.folders.forEach((folder) => folder.close());
+    // Everything starts collapsed except the two abilities' top-level folders —
+    // they are what the sandbox is for, and with two of them the panel only
+    // stays readable if their sections open one at a time.
+    this.gui.foldersRecursive().forEach((folder) => folder.close());
     this.iceFolder.open();
+    this.thunderFolder.open();
   }
 
   /* ------------------------------------------------------------------ */
@@ -386,6 +391,149 @@ export class Editor {
     light.addColor(c, 'lightColor').name('light colour');
 
     this.iceFolder = folder;
+  }
+
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Storm Lance.
+   *
+   * Every control here is read by the vertex shader on the frame it changes, so
+   * the whole folder reshapes a bolt that is already in the air. The ones worth
+   * reaching for first are `jitter` and `jitterScale` (how violently it kinks),
+   * `strands` and `spread` (how wide the bundle reads) and `restrike` (how hard
+   * it strobes) — those four carry the character of the effect.
+   */
+  _buildThunder() {
+    const folder = this.gui.addFolder('⚡  Storm Lance');
+    const c = settings.thunder;
+    const R = Editor.range;
+
+    const cast = folder.addFolder('The cast');
+    R(cast, c, 'range', 2, 60, 0.1, 'max range');
+    R(cast, c, 'minRange', 0, 10, 0.1, 'min range');
+    R(cast, c, 'speed', 5, 400, 1, 'strike speed');
+    R(cast, c, 'lifetime', 0.05, 6, 0.01, 'bolt lifetime');
+    R(cast, c, 'fadeTime', 0.05, 4, 0.01, 'blow-out time');
+    R(cast, c, 'cooldown', 0, 6, 0.05, 'cooldown');
+
+    const anchor = folder.addFolder('Where it leaves the hand');
+    R(anchor, c, 'handHeight', 0, 3, 0.01, 'hand height');
+    R(anchor, c, 'handForward', -1, 3, 0.01, 'hand forward');
+    R(anchor, c, 'handSide', -1.5, 1.5, 0.01, 'hand lateral');
+    R(anchor, c, 'endHeight', 0, 4, 0.01, 'height at target');
+    R(anchor, c, 'sag', -3, 3, 0.01, 'mid-span bow');
+
+    const bundle = folder.addFolder('The bundle');
+    R(bundle, c, 'strands', 1, 24, 1, 'filaments');
+    R(bundle, c, 'spread', 0, 5, 0.01, 'fan at target');
+    R(bundle, c, 'spreadNear', 0, 2, 0.01, 'fan at hand');
+    R(bundle, c, 'spreadCurve', 0.2, 5, 0.01, 'fan curve');
+    R(bundle, c, 'twist', -4, 4, 0.01, 'twist over length');
+    R(bundle, c, 'twistSpeed', -6, 6, 0.01, 'twist speed');
+    R(bundle, c, 'branchDim', 0, 1, 0.01, 'outer filament dim');
+
+    const shape = folder.addFolder('The filament');
+    R(shape, c, 'jitter', 0, 3, 0.01, 'kink amplitude');
+    R(shape, c, 'jitterScale', 0.05, 6, 0.01, 'kinks / metre');
+    R(shape, c, 'octaves', 1, 5, 1, 'octaves');
+    R(shape, c, 'jitterFalloff', 0.1, 0.95, 0.01, 'octave falloff');
+    R(shape, c, 'crawl', -20, 20, 0.1, 'kink crawl');
+    R(shape, c, 'pinch', 0.01, 0.5, 0.005, 'end pinch');
+    R(shape, c, 'converge', 0, 1, 0.01, 'lock onto target');
+
+    const ribbon = folder.addFolder('The ribbon');
+    R(ribbon, c, 'width', 0.005, 0.6, 0.005, 'width at hand');
+    R(ribbon, c, 'widthTip', 0.02, 3, 0.01, 'width at target');
+    R(ribbon, c, 'widthCurve', 0.1, 4, 0.01, 'taper curve');
+    R(ribbon, c, 'coreWidth', 1, 6, 0.01, 'spine thickness');
+    R(ribbon, c, 'coreSharp', 0.5, 12, 0.05, 'core sharpness');
+    R(ribbon, c, 'glowWidth', 1, 30, 0.1, 'halo width');
+    R(ribbon, c, 'glowFalloff', 0.2, 8, 0.05, 'halo falloff');
+    R(ribbon, c, 'glowOpacity', 0, 2, 0.01, 'halo opacity');
+    R(ribbon, c, 'softFade', 0.02, 3, 0.01, 'soft intersection');
+
+    const strobe = folder.addFolder('Flicker & restrike');
+    R(strobe, c, 'restrike', 0.5, 90, 0.5, 'restrikes / sec');
+    R(strobe, c, 'flicker', 0, 1, 0.01, 'brightness stutter');
+    R(strobe, c, 'flickerSpeed', 1, 120, 1, 'stutter rate');
+    R(strobe, c, 'strandFlash', 0, 1, 0.01, 'filament blink');
+    R(strobe, c, 'tipGlow', 0, 8, 0.05, 'leading-edge glow');
+    R(strobe, c, 'tipLength', 0.005, 0.5, 0.005, 'leading-edge length');
+
+    const material = folder.addFolder('Bolt colour');
+    material.addColor(c, 'colorCore').name('core');
+    material.addColor(c, 'colorInner').name('inner');
+    material.addColor(c, 'colorOuter').name('outer');
+    material.addColor(c, 'colorHalo').name('halo');
+    R(material, c, 'glow', 0, 8, 0.01, 'glow');
+    R(material, c, 'opacity', 0, 2, 0.01, 'opacity');
+
+    const ground = folder.addFolder('Burns on the ground');
+    R(ground, c, 'arcRate', 0.05, 8, 0.05, 'burns / metre');
+    R(ground, c, 'arcRadius', 0.1, 8, 0.05, 'burn radius');
+    R(ground, c, 'arcLife', 0.05, 5, 0.05, 'burn lifetime');
+    R(ground, c, 'arcIntensity', 0, 3, 0.01, 'burn intensity');
+    R(ground, c, 'arcBranches', 0, 3, 0.01, 'branch detail');
+    R(ground, c, 'scorchRadius', 0.05, 4, 0.05, 'scorch radius');
+    R(ground, c, 'scorchLife', 0.5, 20, 0.1, 'scorch lifetime');
+    R(ground, c, 'scorchIntensity', 0, 2, 0.01, 'scorch intensity');
+    R(ground, c, 'shockRadius', 0.5, 25, 0.1, 'shockwave radius');
+    ground.addColor(c, 'colorArc').name('burn');
+    ground.addColor(c, 'colorEmber').name('ember');
+    ground.addColor(c, 'colorScorch').name('scorch');
+
+    const sparks = folder.addFolder('Sparks & motes');
+    R(sparks, c, 'sparkRate', 0, 1200, 1, 'spark rate');
+    R(sparks, c, 'sparkSize', 0.005, 0.8, 0.005, 'spark size');
+    R(sparks, c, 'sparkSpeed', 0, 40, 0.1, 'spark speed');
+    R(sparks, c, 'sparkLifetime', 0.05, 4, 0.01, 'spark lifetime');
+    R(sparks, c, 'sparkGravity', -50, 5, 0.1, 'spark gravity');
+    R(sparks, c, 'sparkStretch', 0, 3, 0.01, 'spark stretch');
+    R(sparks, c, 'moteRate', 0, 600, 1, 'mote rate');
+    R(sparks, c, 'moteSize', 0.005, 0.4, 0.005, 'mote size');
+    R(sparks, c, 'moteSpeed', 0, 12, 0.05, 'mote speed');
+    R(sparks, c, 'moteLifetime', 0.1, 8, 0.05, 'mote lifetime');
+    R(sparks, c, 'moteRise', -3, 8, 0.05, 'mote rise');
+    R(sparks, c, 'moteTurbulence', 0, 3, 0.01, 'mote turbulence');
+    sparks.addColor(c, 'colorSpark').name('spark');
+
+    const dust = folder.addFolder('Smoke & debris');
+    R(dust, c, 'smokeRate', 0, 500, 1, 'smoke rate');
+    R(dust, c, 'smokeSize', 0.05, 4, 0.01, 'smoke size');
+    R(dust, c, 'smokeSpeed', 0, 8, 0.05, 'smoke speed');
+    R(dust, c, 'smokeLifetime', 0.2, 8, 0.05, 'smoke lifetime');
+    R(dust, c, 'smokeOpacity', 0, 1, 0.005, 'smoke opacity');
+    R(dust, c, 'smokeRise', -2, 4, 0.01, 'smoke rise');
+    R(dust, c, 'debrisRate', 0, 300, 1, 'debris rate');
+    R(dust, c, 'debrisSize', 0.005, 0.4, 0.005, 'debris size');
+    R(dust, c, 'debrisSpeed', 0, 25, 0.1, 'debris speed');
+    R(dust, c, 'debrisLifetime', 0.1, 5, 0.05, 'debris lifetime');
+    R(dust, c, 'debrisGravity', -50, 0, 0.1, 'debris gravity');
+    dust.addColor(c, 'colorSmoke').name('smoke');
+    dust.addColor(c, 'colorDebris').name('debris');
+
+    const impact = folder.addFolder('Muzzle & impact');
+    R(impact, c, 'muzzleSize', 0.05, 6, 0.05, 'muzzle size');
+    R(impact, c, 'muzzleIntensity', 0, 5, 0.01, 'muzzle intensity');
+    R(impact, c, 'castFlash', 0, 2, 0.01, 'flash on release');
+    R(impact, c, 'burstSize', 0.2, 14, 0.05, 'burst size');
+    R(impact, c, 'burstIntensity', 0, 5, 0.01, 'burst intensity');
+    R(impact, c, 'burstSparks', 0, 600, 1, 'burst sparks');
+    R(impact, c, 'burstDebris', 0, 300, 1, 'burst debris');
+    R(impact, c, 'impactShake', 0, 3, 0.01, 'shake');
+    R(impact, c, 'shakeDuration', 0.1, 4, 0.01, 'shake duration');
+    R(impact, c, 'impactFlash', 0, 2, 0.01, 'screen flash');
+    R(impact, c, 'rumble', 0, 0.5, 0.005, 'travel rumble');
+
+    const light = folder.addFolder('Dynamic light');
+    R(light, c, 'lightIntensity', 0, 120, 0.5, 'light intensity');
+    R(light, c, 'lightRadius', 0.5, 50, 0.1, 'light radius');
+    R(light, c, 'lightFlicker', 0, 1, 0.01, 'light gutter');
+    R(light, c, 'lightFlickerSpeed', 1, 90, 1, 'gutter rate');
+    light.addColor(c, 'lightColor').name('light colour');
+
+    this.thunderFolder = folder;
   }
 
   /* ------------------------------------------------------------------ */

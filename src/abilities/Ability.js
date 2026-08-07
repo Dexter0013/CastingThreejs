@@ -136,6 +136,16 @@ export class Ability {
     return 1.2;
   }
 
+  /**
+   * Per-frame multiplier on the dynamic light's intensity.
+   *
+   * The default is a slow shimmer rather than a flicker: ice glints, it does not
+   * gutter. Elements that *should* gutter override this.
+   */
+  lightShimmer() {
+    return 0.9 + 0.1 * Math.sin(this.age * 9.3) * Math.sin(this.age * 3.7);
+  }
+
   /* ------------------------------------------------------------------ */
   /* Lifecycle                                                           */
   /* ------------------------------------------------------------------ */
@@ -241,8 +251,7 @@ export class Ability {
     if (!this.light) return;
     const cfg = this.config;
     this.lightColor.copy(getColor(cfg.lightColor));
-    // A slow shimmer rather than a flicker: ice glints, it does not gutter.
-    const shimmer = 0.9 + 0.1 * Math.sin(this.age * 9.3) * Math.sin(this.age * 3.7);
+    const shimmer = this.lightShimmer();
     this.ctx.lights.set(
       this.light,
       this.position,

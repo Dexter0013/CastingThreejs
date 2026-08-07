@@ -1,22 +1,29 @@
-# Frost Sandbox
+# Elemental Sandbox
 
-A single-ability VFX sandbox built with **Three.js**, **Vite** and hand-written **GLSL**.
+A linear-skillshot VFX sandbox built with **Three.js**, **Vite** and hand-written **GLSL**.
 
-Press **Q** to arm the ability. A League-of-Legends style arrow appears on the ground and swings
-with the mouse. Click, and a fracture front races out along that line while a field of ice
-crystals tears up out of the floor behind it — small and dense at your feet, opening into a wall
-of blades at the far end, with a cluster thrown up around the impact point.
+Two abilities, both cast the same way: press the key to arm, a League-of-Legends style arrow
+appears on the ground and swings with the mouse, click to fire.
+
+**Q — Frost Lance.** A fracture front races out along the line while a field of ice crystals
+tears up out of the floor behind it — small and dense at your feet, opening into a wall of blades
+at the far end, with a cluster thrown up around the impact point.
+
+**E — Storm Lance.** A bolt leaves the caster's hand and a bundle of lightning filaments is drawn
+out behind the strike front, holds while it gutters and re-strikes, then blows out. Sparks come
+off it the whole way, the floor underneath takes a branching electric burn and a dark scorch, and
+the far end gets a shell of ionised air.
 
 Everything you can see is generated. There are no textures, no sprite sheets and no meshes on
-disk except the character: the crystals are procedural geometry, their shading is a patched
-standard material, the arrow and the rime are signed-distance shaders on quads, and the mist,
-chips and glitter are GPU particles.
+disk except the character: the crystals are procedural geometry, the bolt is a strip of ribbon
+placed entirely by a vertex shader, the arrow, the rime and the burns are signed-distance and
+noise shaders on quads, and the mist, sparks, chips and glitter are GPU particles.
 
-**Every parameter is a live slider** — 226 of them — and they stay live while the simulation is
-paused. That is the point of the project: freeze a frame mid-eruption with **P**, then reshape the
-silhouette, the facets, the palette and the timing against a still image.
+**Every parameter is a live slider** — 317 of them — and they stay live while the simulation is
+paused. That is the point of the project: freeze a frame mid-eruption or mid-strike with **P**,
+then reshape the silhouette, the palette and the timing against a still image.
 
-Reference for the look: `icecast.jpg`.
+References for the look: `icecast.jpg` and `thundercast.jpg`.
 
 ---
 
@@ -63,7 +70,8 @@ shown as a visible sky. The stage keeps its flat dark backdrop.
 
 | Input | Action |
 | --- | --- |
-| **Q** (or **1**) | Arm the ability — press again to put it away |
+| **Q** (or **1**) | Arm Frost Lance — press again to put it away |
+| **E** (or **2**) | Arm Storm Lance — press again to put it away |
 | **Move the mouse** | Swing the aim arrow |
 | **Left click** | Cast along the arrow |
 | **Esc** / **right click** | Cancel an armed cast |
@@ -75,8 +83,10 @@ shown as a visible sky. The stage keeps its flat dark backdrop.
 | **T** | Toggle the character between the standing idle and the meditation sit |
 | **H** | Hide the controls panel |
 
-Aiming closer than `ice.minRange` tints the arrow red and refuses the cast. Set `minRange` to 0
-if you would rather cast at your own feet.
+`range` and `minRange` are per ability, so the arrow's reach changes with the slot you have
+selected. Aiming closer than the selected ability's `minRange` tints the arrow red and refuses the
+cast; set `minRange` to 0 if you would rather cast at your own feet. Cooldowns are per ability
+too, so spending one slot never locks the other out.
 
 ---
 
@@ -84,16 +94,17 @@ if you would rather cast at your own feet.
 
 ```
 src/
-  abilities/      Ability base class (linear skillshot), IceAbility, pooling manager
+  abilities/      Ability base class (linear skillshot), IceAbility, ThunderAbility,
+                  pooling manager
   animation/      FBX character loading, AnimationMixer, procedural meditation pose,
                   the procedural cast lunge
-  assets/         Procedural crystal geometry
+  assets/         Procedural crystal geometry and the bolt ribbon strip
   config/         settings.js — the single source of truth for every parameter
   core/           App, Renderer, CameraRig, Time, Layers, shared frame uniforms
   effects/        Aim indicator, ground decals, bursts, light pool, shake, flash
   input/          InputManager (events) and AimController (targeting)
   loaders/        AssetLoader with a shared LoadingManager
-  materials/      IceMaterial
+  materials/      IceMaterial, LightningMaterial
   particles/      GPU particle system + engine and rate emitters
   postprocessing/ Composer pipeline, grade shader, distortion shader
   shaders/lib/    Shared GLSL: noise library, common helpers
@@ -117,9 +128,15 @@ objects so every live binding stays valid.
 
 ```js
 import { settings } from './config/settings.js';
-settings.ice.height = 7;        // visible on the next frame, even mid-cast
-settings.global.timeScale = 0.1; // slow the whole eruption to a crawl
+settings.ice.height = 7;          // visible on the next frame, even mid-cast
+settings.thunder.jitter = 1.2;    // re-kinks a bolt that is already in the air
+settings.global.timeScale = 0.1;  // slow the whole cast to a crawl
 ```
+
+Ability blocks are keyed by their id in `ELEMENTS`, and the shared systems that need to know
+"which ability is the player holding" — the aim controller, the cooldowns, the HUD — look it up as
+`settings[element]`. The four fields they rely on being present are `range`, `minRange`, `speed`
+and `cooldown`. Everything else in a block is that ability's own business.
 
 ### The rule that makes "edit while paused" work
 
@@ -186,17 +203,55 @@ Three `InstancedMesh`es share one material. Three rather than one because the *f
 just the proportions — per-instance scaling alone cannot buy that silhouette variety, and three
 draw calls is a cheap price.
 
-### Adding a second ability
+### The lightning
+
+`ThunderAbility` takes the "no dimensions on the CPU" rule further than the ice does: there is no
+path object at all. The bolt is one `InstancedBufferGeometry` — a flat ladder of quads in
+*parameter* space, where each vertex carries only `(t, side)`: how far along the bolt it is, and
+which edge of the ribbon it is on. One instance is one filament. `materials/LightningMaterial.js`
+turns that pair into a world position every frame, so a single strip serves a bolt of any length,
+any shape and any width.
+
+Three things stack to make the shape:
+
+- **the axis** — a straight line from the hand to the impact point, bowed by `sag`. The only part
+  that knows where the cast is pointing.
+- **the fan** — a constant per-filament offset in the plane perpendicular to the axis, opening
+  from `spreadNear` at the hand to `spread` at the target and rolling around the axis with
+  `twist`. This is what separates one filament from the next.
+- **the kinks** — octaves of *linearly* interpolated value noise. Linear on purpose: smoothstep
+  would round the corners off, and the corners are the entire reason it reads as lightning rather
+  than as a wobbly tube.
+
+The ribbon is turned to face the camera by crossing the local tangent with the view vector, which
+is why the bolt keeps its apparent thickness from any angle without ever being a screen-space
+line. It is drawn twice — a wide soft halo underneath and the hot core on top — because drawing
+the glow as real ribbon rather than leaving it to bloom is what keeps it *attached* to every kink.
+
+Two clocks run the flicker. `restrike` snaps every filament onto a new shape N times a second,
+and `crawl` slides the kinks continuously in between; together they stop a held bolt from looking
+like a static ribbon. A cast captures exactly one number — a seed, so two casts do not draw the
+identical bolt — and resolves every metre, radian and second against `settings.thunder` each
+frame. That is why dragging `jitter` re-kinks a bolt that is already in the air.
+
+The ground burns are worth a note as a thing *not* to do. The first version sampled the filament
+field on `atan(y, x)`, which hands every radius along a given bearing the same value and draws
+dead-straight spokes out of the centre — a firework, not a burn. Sampling the same noise in the
+plane and warping the lookup is what lets the filaments meander and fork.
+
+### Adding another ability
 
 1. Add a settings block in `config/settings.js` and an entry in `ELEMENTS` / `ELEMENT_META`.
 2. Subclass `Ability` and implement `createShaders`, `createParticles`, `onTravel`, `onImpact`,
    `onFade`.
 3. Register the class in `abilities/AbilityManager.js`.
-4. Add an editor folder in `ui/Editor.js`.
+4. Add an editor folder in `ui/Editor.js`, and a sigil in `ui/glyphs.js`.
+5. Bind a key in `input/InputManager.js` — it emits `ability` with the 0-based slot index, which
+   `App` maps through `ELEMENTS`.
 
-Everything else — pooling, the travelling front, the local frame, lights, phases, camera framing —
-is inherited. The HUD builds its slots from `ELEMENTS`, so a second ability appears in the bar on
-its own.
+Everything else — pooling, the travelling front, the local frame, lights, phases, per-ability
+cooldowns, the aim reach and camera framing — is inherited or driven off `ELEMENTS`. The HUD
+builds its slots from that array, so a new ability appears in the bar on its own.
 
 ### Particles
 
@@ -207,9 +262,14 @@ data, and only the slots that changed are uploaded. Particles live in a ring buf
 the ability recycles slots instead of allocating. Silhouettes (soft, smoke, streak, leaf, chip,
 ring) are procedural — there are no sprite textures anywhere in the project.
 
-The ability uses three systems: **mist** (non-additive, so the fog genuinely occludes and gives the
+Frost Lance uses three systems: **mist** (non-additive, so the fog genuinely occludes and gives the
 field depth), **shards** (lit chips under gravity) and **glitter** (additive, negative gravity — the
 rising plume that is the signature of the reference frame).
+
+Storm Lance uses four: **sparks** (velocity-stretched streaks under gravity), **motes** (the slow
+ionised drift around the bolt), **smoke** (non-additive haze off the scorched floor) and **debris**
+(lit chips). Its sparks are emitted from several points along the bolt each frame rather than one:
+a beam sheds along its whole length, and a single origin makes every batch read as a starburst.
 
 ### Render pipeline
 
@@ -238,43 +298,52 @@ target, blurred twice and projected onto the ground.
 
 ## Editor and presets
 
-Press **G** for the panel. Folders: Presets, Global, Aim indicator, Frost Lance, Environment,
-Post processing, Camera, Character.
+Press **G** for the panel. Folders: Presets, Global, Aim indicator, Frost Lance, Storm Lance,
+Environment, Post processing, Camera, Character.
 
 - **Global** multipliers scale everything at once (speed, glow, noise, particles, lights, impact
   intensity, camera shake, time scale…).
 - **Aim indicator** — the arrow's silhouette in metres, its outline and fill, the chevrons and
   frost, and the rings and rosette.
-- **Frost Lance** — the cast (range, speed, lifetime, cooldown), the footprint, the silhouette,
-  the crystal itself, the eruption timing, the ice material, the frost on the ground, mist/chips/
-  glitter, the impact and the dynamic light.
+- **Frost Lance** (95 controls) — the cast, the footprint, the silhouette, the crystal itself, the
+  eruption timing, the ice material, the frost on the ground, mist/chips/glitter, the impact and
+  the dynamic light.
+- **Storm Lance** (100 controls) — the cast, where the bolt leaves the hand, the bundle, one
+  filament, the ribbon, flicker and restrike, the bolt's colour, the burns on the ground,
+  sparks/motes/smoke/debris, the muzzle and impact, and the dynamic light.
 - **Presets** save to `localStorage`, and can be duplicated, deleted, exported to JSON, imported
   from JSON, or reset to the shipped defaults.
 
 Presets are plain snapshots of the settings tree, so an exported file is readable and editable by
 hand.
 
-Two knobs worth knowing about, because they are the ones that reshape the field most:
-`ice.heightCurve` (how late the ramp climbs — raise it and the field stays low until it explodes
-at the target) and `ice.frontBias` (below 1 crowds the crystals toward the impact point).
+Knobs worth knowing about, because they reshape their ability the most:
+
+- `ice.heightCurve` — how late the ramp climbs; raise it and the field stays low until it explodes
+  at the target. `ice.frontBias` below 1 crowds the crystals toward the impact point.
+- `thunder.jitter` and `thunder.jitterScale` — how violently the bolt kinks, and how often.
+  `thunder.strands` and `thunder.spread` set how wide the bundle reads, and `thunder.restrike`
+  how hard it strobes. Those five carry the character of the effect.
 
 ---
 
 ## Performance notes
 
-- Abilities, decals, bursts and particles are pooled. Twelve casts in a row build **four**
-  `IceAbility` instances and then stop allocating.
+- Abilities, decals, bursts and particles are pooled, per type. Twelve casts in a row build at most
+  **four** instances of an ability and then stop allocating.
 - The whole crystal field is three draw calls regardless of crystal count; the cap is 288.
+- A whole bolt is **two** draw calls regardless of filament count; the cap is 24 filaments at 72
+  samples each. Nothing about the path touches the CPU, so `strands` is nearly free.
 - The six dynamic point lights are created at boot and parked at zero intensity rather than added
   and removed — changing the light count forces three to recompile every material.
 - Shadow maps update exactly once per frame even though the scene is rendered several times.
 - `renderer.compileAsync()` runs during boot so the first cast never stutters on shader compile.
 - Pixel ratio is capped at 1.75; the depth and distortion buffers are half resolution.
 
-Measured on a default cast: 32 draw calls idle, ~69 with a full field standing, ~67k triangles,
-~1150 live particles, 37 compiled programs.
+Measured on a default cast: 32 draw calls idle, ~69 with a full ice field standing and ~49 with a
+bolt in the air, ~1150 live particles, 43 compiled programs once both abilities have been cast.
 
-Live counters (FPS, live particles, crystals, draw calls) are in the top-right of the HUD.
+Live counters (FPS, live particles, instances, draw calls) are in the top-right of the HUD.
 
 ---
 

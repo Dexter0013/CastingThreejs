@@ -7,7 +7,9 @@ import { EventEmitter } from '../utils/EventEmitter.js';
  * Events:
  *   `pointer:move` (ndc)          — every move, armed or not
  *   `pointer:confirm` (ndc)       — left click on the viewport
- *   `action` (name)               — everything else, already named by intent
+ *   `action` (name, slot)         — everything else, already named by intent.
+ *                                   `ability` carries the 0-based slot index,
+ *                                   which App maps through `ELEMENTS`.
  *
  * Pointer events that begin on top of DOM UI (the editor, the HUD) are ignored
  * so dragging a slider never fires the ability.
@@ -68,9 +70,14 @@ export class InputManager extends EventEmitter {
     this.keys.add(event.code);
 
     switch (event.code) {
+      // Ability slots. Keep these in step with `ELEMENT_META[...].key`.
       case 'KeyQ':
       case 'Digit1':
-        this.emit('action', 'ability');
+        this.emit('action', 'ability', 0);
+        break;
+      case 'KeyE':
+      case 'Digit2':
+        this.emit('action', 'ability', 1);
         break;
       case 'Escape':
         this.emit('action', 'cancel');

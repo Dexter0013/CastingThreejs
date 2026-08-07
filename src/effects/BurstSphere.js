@@ -19,7 +19,8 @@ export const BurstMode = Object.freeze({
   WATER: 1, // splash dome, fresnel heavy
   AIR: 2, // thin pressure shell
   EARTH: 3, // dense dust ball
-  FROST: 4 // shell of freezing vapour tearing into plates
+  FROST: 4, // shell of freezing vapour tearing into plates
+  STORM: 5 // ionised air, filaments racing over a near-invisible shell
 });
 
 const BURST_VERTEX = /* glsl */ `
@@ -119,7 +120,7 @@ const BURST_FRAGMENT = /* glsl */ `
       color = mix(uColorA, uColorB, heat * 0.8);
       alpha *= (1.0 - uAge) * (0.5 + heat * 0.4) * dis.x;
 
-    #else                                   /* FROST */
+    #elif BURST_MODE == 4                   /* FROST */
       // Freezing vapour rather than an explosion: the billowing noise the vertex
       // stage already computed is reused as a crystallisation mask, so the shell
       // goes glassy and opaque in plates and stays clear between them — it tears
@@ -130,6 +131,22 @@ const BURST_FRAGMENT = /* glsl */ `
       color = mix(color, uColorC * (0.7 + 0.6 * rime), plates);
       color += uColorC * fres * 1.3;
       alpha *= (1.0 - uAge) * (0.16 + fres * 0.95 + plates * 0.7) * dis.x;
+
+    #else                                   /* STORM */
+      // Ionised air, not a fireball. The shell has to stay *empty*: the body of
+      // it contributes almost nothing, and what you see is thin filaments
+      // racing over the surface plus the fresnel rim. Ridged noise scrolling in
+      // the normal direction gives branching arcs that skate across it as it
+      // expands. Thresholded hard on purpose — a wide band here fills the shell
+      // in and it immediately reads as a rock.
+      float fil = ridged(vNormalW * (5.0 + uAge * 7.0) + vec3(uSeed * 9.0) +
+                         vec3(0.0, uTime * 3.4, 0.0), 4);
+      float arcs = smoothstep(0.80, 0.97, fil) * (1.0 - uAge * 0.6);
+      float rim = pow(fres, 1.6);
+      color = mix(uColorA, uColorB, heat * 0.5);
+      color = mix(color, uColorC, arcs);
+      color += uColorC * rim * 1.2 + uColorC * arcs * 2.4;
+      alpha *= (1.0 - uAge) * (rim * 0.55 + arcs * 0.9) * dis.x;
     #endif
 
     alpha = clamp(alpha, 0.0, 1.0);

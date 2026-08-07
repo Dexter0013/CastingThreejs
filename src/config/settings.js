@@ -17,7 +17,13 @@
  *  - Colours are stored as `#rrggbb` strings so lil-gui can bind them directly.
  *    Use `utils/color.js#getColor()` to read them as a cached THREE.Color.
  *  - `global` holds multipliers that scale everything at once (1 = neutral).
- *  - The `ice` block holds absolute values.
+ *  - The per-ability blocks (`ice`, `thunder`) hold absolute values.
+ *
+ * Every ability block is keyed by its id in `ELEMENTS`, and the shared systems
+ * that need to know about "the ability the player is currently holding" — the
+ * aim controller, the cooldown, the HUD — look it up as `settings[element]`.
+ * The four fields they rely on being present are `range`, `minRange`, `speed`
+ * and `cooldown`; everything else in a block is that ability's own business.
  */
 
 export const settings = {
@@ -130,7 +136,7 @@ export const settings = {
   },
 
   /* ================================================================== */
-  /* ICE — the one ability                                               */
+  /* ICE — ability one                                                   */
   /* ================================================================== */
   /**
    * A glacial eruption: a fracture front races out along the aimed line and a
@@ -263,6 +269,151 @@ export const settings = {
     rumble: 0.06 // continuous shake while the front travels
   },
 
+  /* ================================================================== */
+  /* THUNDER — ability two                                               */
+  /* ================================================================== */
+  /**
+   * A bolt thrown from the caster's hand along the aimed line: a bundle of
+   * lightning filaments that snap into existence, hold while they gutter, and
+   * blow out. Reference for the look: `thundercast.jpg`.
+   *
+   * The bolt is **one mesh**. Every filament is an instance of the same ribbon
+   * strip, and its entire shape — the sag of the axis, the fan of the bundle,
+   * the kinks in an individual strand, the camera-facing width — is evaluated in
+   * the vertex shader from the numbers below. Nothing about the path exists on
+   * the CPU, which is why `strands`, `jitter` and `spread` reshape a bolt that
+   * is already in the air, and do it with the clock paused.
+   *
+   * The one thing a cast *does* capture is `uSeed`, a single random number
+   * rolled at spawn so two casts do not draw the identical bolt. That is an
+   * event, not a dimension — the same rule `IceAbility` follows.
+   */
+  thunder: {
+    /* --- the cast --- */
+    range: 24.0, // maximum cast distance, metres
+    minRange: 2.0, // closer than this and the cast is refused
+    speed: 105.0, // how fast the strike front travels, metres/second
+    lifetime: 0.45, // seconds the bolt holds after it lands
+    fadeTime: 0.5, // seconds it takes to blow out
+    cooldown: 0.5,
+
+    /* --- where the bolt leaves the caster --- */
+    // The beam starts at the hand, not at the feet, so these are measured from
+    // the caster's origin in the cast's own frame.
+    handHeight: 1.28, // metres above the floor
+    handForward: 0.55, // metres in front of the caster
+    handSide: 0.16, // metres to the side (+ follows `Ability#side`)
+    endHeight: 0.35, // height of the bolt where it lands, metres
+    sag: 0.22, // metres the mid-span bows upward (negative droops)
+
+    /* --- the bundle of filaments --- */
+    strands: 9, // separate filaments (capped at 24)
+    spread: 0.75, // metres the bundle fans out at the far end
+    spreadNear: 0.05, // ... and at the hand
+    spreadCurve: 1.6, // >1 keeps the bundle tight then opens it late
+    twist: 0.45, // turns the bundle makes around the axis over its length
+    twistSpeed: 0.8, // turns/second it rolls on top of that
+    branchDim: 0.72, // how much dimmer an outer filament is than the spine
+
+    /* --- the shape of one filament --- */
+    jitter: 0.34, // metres of kink at the coarsest octave
+    jitterScale: 0.85, // kinks per metre
+    octaves: 4, // 1–5; each one halves the amplitude and doubles the rate
+    jitterFalloff: 0.55, // amplitude kept per octave
+    crawl: 3.2, // how fast the kinks slide along the bolt
+    pinch: 0.14, // fraction of the span the ends are pulled straight over
+    converge: 0.8, // how hard the far end is pulled onto the target, 0..1
+
+    /* --- the ribbon --- */
+    width: 0.025, // half-width of a filament at the hand, metres
+    widthTip: 0.43, // that width at the impact point, as a fraction
+    widthCurve: 1.09, // how early the taper happens
+    coreWidth: 1.31, // multiplier on the central spine
+    coreSharp: 4.95, // how hard the hot core falls off across the ribbon
+    glowWidth: 5.7, // the halo, × the core width
+    glowFalloff: 2.4, // how fast the halo fades across its ribbon
+    glowOpacity: 0.49,
+    softFade: 0.78, // metres of soft fade where the bolt meets geometry
+
+    /* --- flicker & restrike --- */
+    restrike: 24, // times/second the filaments re-roll their shape
+    flicker: 0.3, // depth of the whole-bolt brightness stutter
+    flickerSpeed: 34, // stutters/second
+    strandFlash: 0.5, // how much individual filaments blink out
+    tipGlow: 2.0, // extra heat on the leading edge while it travels
+    tipLength: 0.08, // length of that leading edge, fraction of the span
+
+    /* --- colour --- */
+    colorCore: '#ffffff', // the centre of a filament
+    colorInner: '#c9ecff',
+    colorOuter: '#3aa0ff', // the outside of a filament
+    colorHalo: '#0b3fc8', // the wide glow around the bundle
+    glow: 2.3, // overall emissive gain
+    opacity: 1.0,
+
+    /* --- what the ground does --- */
+    arcRate: 0.9, // electric burns laid per metre of front travel
+    arcRadius: 1.5, // radius of one burn, metres
+    arcLife: 0.6, // seconds a burn lingers
+    arcIntensity: 1.0,
+    arcBranches: 0.6, // how finely the burn splits into filaments
+    scorchRadius: 0.5, // dark burn mark under the bolt, metres
+    scorchLife: 6.5,
+    scorchIntensity: 0.45,
+    colorArc: '#9fdcff',
+    colorScorch: '#080b11',
+    colorEmber: '#4aa8ff',
+    shockRadius: 6.5, // impact shockwave ring, metres
+
+    /* --- sparks, motes, smoke and debris --- */
+    sparkRate: 240, // sparks thrown off the bolt, particles/second
+    sparkSize: 0.16,
+    sparkSpeed: 9.0,
+    sparkLifetime: 0.5,
+    sparkGravity: -12.0,
+    sparkStretch: 0.18, // how far a spark smears along its velocity
+    moteRate: 90, // the slow ionised motes drifting off the bolt
+    moteSize: 0.05,
+    moteSpeed: 1.5,
+    moteLifetime: 1.6,
+    moteRise: 1.0, // upward drift, metres/second
+    moteTurbulence: 0.7,
+    smokeRate: 50, // thin haze off the scorched floor
+    smokeSize: 1.0,
+    smokeSpeed: 1.1,
+    smokeLifetime: 2.2,
+    smokeOpacity: 0.06,
+    smokeRise: 0.55,
+    debrisRate: 24, // chips kicked off the floor under the bolt
+    debrisSize: 0.055,
+    debrisSpeed: 5.0,
+    debrisLifetime: 1.3,
+    debrisGravity: -17.0,
+    colorSpark: '#ffffff',
+    colorSmoke: '#33475e',
+    colorDebris: '#1c222a',
+
+    /* --- dynamic light --- */
+    lightIntensity: 26,
+    lightRadius: 17,
+    lightColor: '#63b8ff',
+    lightFlicker: 0.4, // depth of the light's gutter, 0 = steady
+    lightFlickerSpeed: 26,
+
+    /* --- the muzzle and the impact --- */
+    muzzleSize: 0.55, // the flash at the hand, metres
+    muzzleIntensity: 1.9,
+    castFlash: 0.1, // screen flash on release
+    burstSize: 3.0, // the shell at the impact point, metres
+    burstIntensity: 1.4,
+    burstSparks: 170, // extra sparks thrown at the impact
+    burstDebris: 45,
+    impactShake: 0.8,
+    shakeDuration: 0.55,
+    impactFlash: 0.28,
+    rumble: 0.03 // continuous shake while the front travels
+  },
+
   /* ------------------------------------------------------------------ */
   /* Camera rig                                                          */
   /* ------------------------------------------------------------------ */
@@ -344,15 +495,16 @@ export const settings = {
 /**
  * Ability ids, in slot order.
  *
- * There is exactly one for now. It stays an array because `AbilityManager`, the
- * HUD and the editor all iterate it — adding a second ability is a new file, an
- * entry here and a settings block, and nothing else changes.
+ * `AbilityManager`, the HUD, the aim controller and the editor all key off this
+ * array, and the index is the slot the keyboard binds to — adding a third
+ * ability is a new file, an entry here and a settings block above.
  */
-export const ELEMENTS = ['ice'];
+export const ELEMENTS = ['ice', 'thunder'];
 
-/** Presentation metadata for the HUD. */
+/** Presentation metadata for the HUD. `key` must match `InputManager`. */
 export const ELEMENT_META = {
-  ice: { label: 'Frost Lance', accent: '#5fd0ff', key: 'Q', hint: 'Frost Lance' }
+  ice: { label: 'Frost Lance', accent: '#5fd0ff', key: 'Q', hint: 'Frost Lance' },
+  thunder: { label: 'Storm Lance', accent: '#7fb4ff', key: 'E', hint: 'Storm Lance' }
 };
 
 /** Immutable snapshot used by "Reset to defaults" and the preset system. */

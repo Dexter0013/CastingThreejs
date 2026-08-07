@@ -4,8 +4,9 @@ import { ELEMENT_SIGILS } from './glyphs.js';
 /**
  * Heads-up display: the ability bar, controls, live stats and toasts.
  *
- * Plain DOM — no framework. The ability slot is the only interactive part; it
- * mirrors the keyboard shortcut and reports back through `onAbility`.
+ * Plain DOM — no framework. The bar is built from `ELEMENTS`, so a new ability
+ * appears in it on its own; the slots are the only interactive part, and they
+ * mirror the keyboard shortcuts through `onAbility`.
  *
  * The cooldown sweep is a `conic-gradient` driven by a CSS custom property, so
  * updating it every frame is one `setProperty` call and never touches layout.
@@ -18,24 +19,25 @@ export class HUD {
     this._statsAccumulator = 0;
     this._frames = 0;
     this._fps = 0;
-    this._cooldownShown = -1;
+    /** Last sweep ratio pushed to the DOM, per element. */
+    this._cooldownShown = new Map();
     this._armedShown = null;
 
     root.innerHTML = `
       <div class="hud__panel hud__title">
-        Frost Sandbox
-        <span data-blurb>Press Q, aim, click to cast.</span>
+        Elemental Sandbox
+        <span data-blurb>Press Q or E, aim, click to cast.</span>
       </div>
 
       <div class="hud__panel hud__stats">
         <div>FPS <b data-stat="fps">—</b></div>
         <div>Particles <b data-stat="particles">0</b></div>
-        <div>Crystals <b data-stat="spikes">0</b></div>
+        <div>Instances <b data-stat="spikes">0</b></div>
         <div>Draw calls <b data-stat="calls">0</b></div>
       </div>
 
       <div class="hud__panel hud__help">
-        <div><strong>Q</strong> — arm the ability</div>
+        <div><strong>Q</strong> — Frost Lance &nbsp; <strong>E</strong> — Storm Lance</div>
         <div><strong>Move</strong> — swing the arrow &nbsp; <strong>Left click</strong> — cast</div>
         <div><strong>Esc / right click</strong> — cancel the cast</div>
         <div><strong>Right drag</strong> — orbit &nbsp; <strong>Scroll</strong> — zoom</div>
@@ -101,19 +103,23 @@ export class HUD {
   }
 
   /**
-   * Drive the cooldown sweep.
+   * Drive one slot's cooldown sweep. Cooldowns are per ability, so this is
+   * called once per element each frame.
+   *
+   * @param {string} element
    * @param {number} remaining seconds left
    * @param {number} total     the full cooldown, for the sweep angle
    */
-  setCooldown(remaining, total) {
-    const ratio = Math.max(0, Math.min(1, remaining / total));
+  setCooldown(element, remaining, total) {
+    const card = this.cards.get(element);
+    if (!card) return;
+
+    const ratio = Math.max(0, Math.min(1, remaining / Math.max(total, 0.001)));
     // Only touch the DOM when the sweep visibly moves.
-    if (Math.abs(ratio - this._cooldownShown) < 0.01) return;
-    this._cooldownShown = ratio;
-    for (const card of this.cards.values()) {
-      card.style.setProperty('--cooldown', ratio);
-      card.classList.toggle('is-cooling', ratio > 0.001);
-    }
+    if (Math.abs(ratio - (this._cooldownShown.get(element) ?? -1)) < 0.01) return;
+    this._cooldownShown.set(element, ratio);
+    card.style.setProperty('--cooldown', ratio);
+    card.classList.toggle('is-cooling', ratio > 0.001);
   }
 
   setPaused(paused) {

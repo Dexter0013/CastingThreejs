@@ -1,10 +1,12 @@
 import { IceAbility } from './IceAbility.js';
+import { ThunderAbility } from './ThunderAbility.js';
 import { ELEMENTS } from '../config/settings.js';
 import { ObjectPool } from '../utils/ObjectPool.js';
 
 /** Registry: adding an ability means adding one line here. */
 const ABILITY_TYPES = {
-  ice: IceAbility
+  ice: IceAbility,
+  thunder: ThunderAbility
 };
 
 const MAX_CONCURRENT = 4;
@@ -13,8 +15,11 @@ const MAX_CONCURRENT = 4;
  * Spawns, updates and recycles abilities.
  *
  * Instances are pooled per type: casting fifty times constructs at most a
- * handful of IceAbility objects, and every one of them keeps its meshes and
+ * handful of objects per ability, and every one of them keeps its meshes and
  * materials for the lifetime of the app. Nothing is built during a cast.
+ *
+ * `MAX_CONCURRENT` is shared across types, so mixing abilities retires the
+ * oldest cast whichever element it was.
  */
 export class AbilityManager {
   /**

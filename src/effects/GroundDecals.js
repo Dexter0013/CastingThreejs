@@ -14,18 +14,19 @@ import { LAYER } from '../core/Layers.js';
 import { ObjectPool } from '../utils/ObjectPool.js';
 
 /**
- * Only SHOCKWAVE and FROST are used by the live ability; the rest are generic
- * ground marks kept for whatever gets built next, and cost nothing until one is
- * spawned (three compiles a program per decal type, on first use).
+ * SCORCH, SHOCKWAVE, FROST and ARC are used by the live abilities; the rest are
+ * generic ground marks kept for whatever gets built next, and cost nothing until
+ * one is spawned (three compiles a program per decal type, on first use).
  */
 export const DecalType = Object.freeze({
-  SCORCH: 0, // burnt ground with cooling embers  (fire)
+  SCORCH: 0, // burnt ground with cooling embers  (fire / thunder)
   RIPPLE: 1, // expanding water ring              (water)
   CRACK: 2, // radial fractures with hot glow     (earth)
   SHOCKWAVE: 3, // thin expanding ring            (all impacts)
   DUSTRING: 4, // soft ground-hugging dust puff   (earth / wind)
   FOAM: 5, // spreading sea foam over wet stone   (water)
-  FROST: 6 // rime creeping outward in plates     (ice)
+  FROST: 6, // rime creeping outward in plates    (ice)
+  ARC: 7 // branching electric burn               (thunder)
 });
 
 const DECAL_VERTEX = /* glsl */ `
@@ -125,7 +126,7 @@ const DECAL_FRAGMENT = /* glsl */ `
       // The growing edge is still freezing, so it stays lit while it advances.
       color += uColorB * rim * 1.7 * (1.0 - smoothstep(0.0, 0.5, uAge));
 
-    #else                                            /* FOAM */
+    #elif DECAL == 5                                 /* FOAM */
       // A sheet of foam thrown outward by the impact, which then drains from
       // the middle and dries back into a ring, over wet stone that darkens and
       // slowly evaporates.
@@ -150,6 +151,30 @@ const DECAL_FRAGMENT = /* glsl */ `
       float mask = clamp(foam * (0.5 + 0.65 * bubbles) + rim * 0.9, 0.0, 1.0);
       alpha = clamp(wet * 0.5 + mask, 0.0, 1.0) * fadeOut;
       color = mix(uColorA, uColorB, clamp(mask * 1.3, 0.0, 1.0));
+
+    #else                                            /* ARC */
+      // The burn a bolt leaves where it earthed itself.
+      //
+      // The filament field is sampled in the *plane*, never on the angle. An
+      // angular function hands every radius along a given bearing the same
+      // value, which draws dead-straight spokes out of the centre — a firework,
+      // not a burn. Sampling in 2D and warping the lookup lets the filaments
+      // meander and fork the way current actually does. uWidth is how finely it
+      // splits.
+      float warp = fbm3(vec3(c * 1.7, uSeed * 3.0)) * 0.5;
+      float fil = ridged(vec3(c * (2.4 + uWidth * 4.0) + warp, uSeed * 11.0), 4);
+      float veins = smoothstep(0.70, 0.96, fil);
+
+      // A ragged front that opens outward, so the mark spreads from the strike
+      // rather than appearing whole.
+      float grow = pow(uAge, 0.35);
+      float edge = d + fbm3(vec3(c * 2.2, uSeed * 5.0)) * 0.25;
+      float front = smoothstep(grow, grow * 0.15, edge);
+      float hot = veins * front * (1.0 - smoothstep(0.0, 0.45, uAge));
+
+      alpha = clamp(veins * front * 1.1, 0.0, 1.0) * fadeOut;
+      color = mix(uColorA, uColorB, clamp(veins * 1.4, 0.0, 1.0));
+      color += uColorB * hot * 1.8;
     #endif
 
     alpha *= uIntensity;
@@ -194,7 +219,8 @@ export class DecalSystem {
   }
 
   _createDecal(type) {
-    const additive = type === DecalType.RIPPLE || type === DecalType.SHOCKWAVE;
+    const additive =
+      type === DecalType.RIPPLE || type === DecalType.SHOCKWAVE || type === DecalType.ARC;
     const material = new ShaderMaterial({
       defines: { DECAL: type },
       transparent: true,

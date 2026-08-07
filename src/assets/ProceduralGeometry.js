@@ -1,4 +1,12 @@
-import { BufferGeometry, Float32BufferAttribute } from 'three';
+import {
+  BufferGeometry,
+  BufferAttribute,
+  Float32BufferAttribute,
+  InstancedBufferGeometry,
+  InstancedBufferAttribute,
+  Sphere,
+  Vector3
+} from 'three';
 import { hash11 } from '../utils/math.js';
 
 /**
@@ -137,4 +145,61 @@ export function createShardGeometry(seed = 5, sides = 5) {
     roughness: 0.55,
     bend: 0.35
   });
+}
+
+/**
+ * The strip a lightning filament is drawn on — a flat ladder of quads, in
+ * *parameter* space rather than world space.
+ *
+ * Every vertex carries `position = (t, side, 0)`, where `t` runs 0 → 1 from the
+ * caster's hand to the impact point and `side` is ±1 across the ribbon. There
+ * are no metres in here at all: `materials/LightningMaterial.js` turns that pair
+ * into a world position every frame, so one strip serves a bolt of any length,
+ * any shape and any width, and the whole path stays a live slider.
+ *
+ * One instance is one filament, and `aStrand` is simply its index — the shader
+ * derives the filament's seed, its place in the fan and its width from it.
+ *
+ * @param {number} nodes   samples along the bolt; the kink detail ceiling
+ * @param {number} strands instance capacity (the live count is `instanceCount`)
+ */
+export function createBoltRibbonGeometry(nodes = 72, strands = 24) {
+  const steps = Math.max(2, Math.round(nodes));
+  const count = Math.max(1, Math.round(strands));
+
+  const positions = new Float32Array(steps * 2 * 3);
+  for (let i = 0; i < steps; i++) {
+    const t = i / (steps - 1);
+    const o = i * 6;
+    positions[o + 0] = t;
+    positions[o + 1] = -1;
+    positions[o + 3] = t;
+    positions[o + 4] = 1;
+  }
+
+  const indices = new Uint16Array((steps - 1) * 6);
+  for (let i = 0; i < steps - 1; i++) {
+    const a = i * 2;
+    const o = i * 6;
+    indices[o + 0] = a;
+    indices[o + 1] = a + 1;
+    indices[o + 2] = a + 2;
+    indices[o + 3] = a + 1;
+    indices[o + 4] = a + 3;
+    indices[o + 5] = a + 2;
+  }
+
+  const strandIndex = new Float32Array(count);
+  for (let i = 0; i < count; i++) strandIndex[i] = i;
+
+  const geometry = new InstancedBufferGeometry();
+  geometry.setAttribute('position', new BufferAttribute(positions, 3));
+  geometry.setAttribute('aStrand', new InstancedBufferAttribute(strandIndex, 1));
+  geometry.setIndex(new BufferAttribute(indices, 1));
+  geometry.instanceCount = count;
+  // The bolt is built in world space in the vertex shader, so the geometry's own
+  // bounds are meaningless — cull it manually instead (the ability sets
+  // `frustumCulled = false`).
+  geometry.boundingSphere = new Sphere(new Vector3(), 1e4);
+  return geometry;
 }

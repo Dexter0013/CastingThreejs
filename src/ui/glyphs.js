@@ -28,5 +28,18 @@ const ICE = WRAP(`
   <path d="M27.5 63.5L27.7 50.8M27.5 63.5L38.5 69.6"/>
 `);
 
+/**
+ * Thunder — a bolt struck through a pair of arcs.
+ *
+ * The zigzag is drawn on the same diagonal the cast travels on, and the two
+ * open arcs behind it read as the discharge spreading off it. Stroke only, like
+ * the snowflake, so the two slots sit at the same visual weight.
+ */
+const THUNDER = WRAP(`
+  <path d="M60 10L30 52H49L40 90L72 45H52L60 10Z"/>
+  <path d="M23 26C13 36 11 52 17 65"/>
+  <path d="M84 34C90 47 88 63 78 73"/>
+`);
+
 /** Keyed by the ids in `ELEMENTS`. */
-export const ELEMENT_SIGILS = { ice: ICE };
+export const ELEMENT_SIGILS = { ice: ICE, thunder: THUNDER };

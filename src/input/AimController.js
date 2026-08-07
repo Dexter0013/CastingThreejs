@@ -1,5 +1,5 @@
 import { Raycaster, Plane, Vector2, Vector3, MathUtils } from 'three';
-import { settings } from '../config/settings.js';
+import { settings, ELEMENTS } from '../config/settings.js';
 import { EventEmitter } from '../utils/EventEmitter.js';
 import { AimIndicator } from '../effects/AimIndicator.js';
 
@@ -29,6 +29,13 @@ export class AimController extends EventEmitter {
 
     this.indicator = new AimIndicator();
 
+    /**
+     * Which ability the arrow is measuring for. `range` and `minRange` are
+     * per-element, so the reach of the arrow changes with the slot the player
+     * has selected.
+     */
+    this.element = ELEMENTS[0];
+
     this.armed = false;
     /** 0..1 sweep-out of the indicator. Driven by real time, never scaled. */
     this.reveal = 0;
@@ -39,7 +46,7 @@ export class AimController extends EventEmitter {
     this.direction = new Vector3(0, 0, 1);
     this.distance = 0;
     this.yaw = 0;
-    /** False while the pointer is nearer than `ice.minRange`. */
+    /** False while the pointer is nearer than the ability's `minRange`. */
     this.valid = true;
 
     this._pointer = new Vector2();
@@ -50,6 +57,17 @@ export class AimController extends EventEmitter {
 
   get object3D() {
     return this.indicator.object3D;
+  }
+
+  /** Live settings block of the ability being aimed. */
+  get config() {
+    return settings[this.element] ?? settings[ELEMENTS[0]];
+  }
+
+  /** Point the arrow at a different ability's reach. */
+  setElement(element) {
+    if (!settings[element]) return;
+    this.element = element;
   }
 
   get isArmed() {
@@ -110,7 +128,7 @@ export class AimController extends EventEmitter {
 
   /** Project the pointer onto the ground and resolve the aim from it. */
   _resolve() {
-    const c = settings.ice;
+    const c = this.config;
 
     if (this._hasPointer) {
       this.raycaster.setFromCamera(this._pointer, this.camera);
