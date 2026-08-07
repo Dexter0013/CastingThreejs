@@ -29,7 +29,6 @@ materials/
   TrailMaterial.js            the drawn-path preview ribbon
   AirScooterMaterial.js       the walk-mode air ball
 effects/
-  RibbonGeometry.js     CPU ribbon/tube builder used by the stream abilities
   PathTrail.js          the glowing preview under the cursor while drawing
   AirScooter.js         the ball the avatar rode in walk mode
 input/
@@ -57,3 +56,6 @@ config/
 5. `PathDrawer` + `PathTrail` are only needed if you want freehand paths back.
    `AimController` can drive a spline-based ability just as well by handing it a
    two-point curve.
+
+`RibbonGeometry` has already been restored this way: it now lives at
+`src/effects/RibbonGeometry.js`, where it builds the meteor's fire trail.

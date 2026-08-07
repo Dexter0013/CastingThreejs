@@ -41,5 +41,18 @@ const THUNDER = WRAP(`
   <path d="M84 34C90 47 88 63 78 73"/>
 `);
 
+/**
+ * Meteor — a cracked ball trailing fire.
+ *
+ * The circle sits forward and low with three seams splitting it, and three
+ * tapering streaks run back up the same diagonal the other two sigils are drawn
+ * on, so the slot reads as "the rock, thrown" at 34px.
+ */
+const METEOR = WRAP(`
+  <circle cx="62" cy="62" r="24"/>
+  <path d="M46 45L58 58L52 72M74 46L66 60L79 72M58 84L64 70"/>
+  <path d="M30 70L10 90M40 34L18 22M22 48L4 44"/>
+`);
+
 /** Keyed by the ids in `ELEMENTS`. */
-export const ELEMENT_SIGILS = { ice: ICE, thunder: THUNDER };
+export const ELEMENT_SIGILS = { ice: ICE, thunder: THUNDER, meteor: METEOR };

@@ -2,12 +2,13 @@ import {
   BufferGeometry,
   BufferAttribute,
   Float32BufferAttribute,
+  IcosahedronGeometry,
   InstancedBufferGeometry,
   InstancedBufferAttribute,
   Sphere,
   Vector3
 } from 'three';
-import { hash11 } from '../utils/math.js';
+import { clamp, hash11, smoothstep } from '../utils/math.js';
 
 /**
  * CPU-side procedural geometry.
@@ -145,6 +146,199 @@ export function createShardGeometry(seed = 5, sides = 5) {
     roughness: 0.55,
     bend: 0.35
   });
+}
+
+/* ---------------------------------------------------------------------- */
+/* Asteroid                                                                */
+/* ---------------------------------------------------------------------- */
+
+/** One lattice corner of the value noise below. */
+function lattice(ix, iy, iz, seed) {
+  return hash11(ix * 127.1 + iy * 311.7 + iz * 74.7 + seed * 19.19);
+}
+
+/**
+ * Deterministic 3D value noise, 0..1.
+ *
+ * The GLSL library has simplex noise, but the asteroid is displaced on the CPU
+ * (a vertex shader cannot move a shadow caster's silhouette or its normals), so
+ * it needs a JS counterpart. Value noise on a smoothstepped lattice is plenty:
+ * the shape is read at the silhouette, not up close, and the rock's *detail*
+ * comes from the flat facets and the crack shader on top.
+ */
+function valueNoise3(x, y, z, seed) {
+  const ix = Math.floor(x);
+  const iy = Math.floor(y);
+  const iz = Math.floor(z);
+  const fx = x - ix;
+  const fy = y - iy;
+  const fz = z - iz;
+
+  const ux = fx * fx * (3 - 2 * fx);
+  const uy = fy * fy * (3 - 2 * fy);
+  const uz = fz * fz * (3 - 2 * fz);
+
+  const c000 = lattice(ix, iy, iz, seed);
+  const c100 = lattice(ix + 1, iy, iz, seed);
+  const c010 = lattice(ix, iy + 1, iz, seed);
+  const c110 = lattice(ix + 1, iy + 1, iz, seed);
+  const c001 = lattice(ix, iy, iz + 1, seed);
+  const c101 = lattice(ix + 1, iy, iz + 1, seed);
+  const c011 = lattice(ix, iy + 1, iz + 1, seed);
+  const c111 = lattice(ix + 1, iy + 1, iz + 1, seed);
+
+  const x00 = c000 + (c100 - c000) * ux;
+  const x10 = c010 + (c110 - c010) * ux;
+  const x01 = c001 + (c101 - c001) * ux;
+  const x11 = c011 + (c111 - c011) * ux;
+
+  const y0 = x00 + (x10 - x00) * uy;
+  const y1 = x01 + (x11 - x01) * uy;
+
+  return y0 + (y1 - y0) * uz;
+}
+
+/** Signed fbm over `valueNoise3`, roughly -1..1. */
+function fbmValue(x, y, z, seed, octaves) {
+  let value = 0;
+  let amplitude = 0.5;
+  let frequency = 1;
+  for (let i = 0; i < octaves; i++) {
+    value += amplitude * (valueNoise3(x * frequency, y * frequency, z * frequency, seed + i * 7.7) * 2 - 1);
+    frequency *= 2.03;
+    amplitude *= 0.5;
+  }
+  return value;
+}
+
+/**
+ * A meteor: a fractured, cratered ball of rock.
+ *
+ * Unit space — an icosphere of radius 1 whose vertices are pushed in and out
+ * along their own direction, so an instance scales it straight to metres and
+ * `local` reads as a direction on the rock. That matters because
+ * `materials/MeteorMaterial.js` samples its lava seams in exactly that space:
+ * the cracks are welded to the rock and tumble with it instead of swimming
+ * through it.
+ *
+ * Three things stack to make it read as *stone* rather than as a wobbly ball:
+ *
+ *  1. **fbm lumps** — the big shape, so no two directions look alike.
+ *  2. **planar cuts** — the rock is sliced by a handful of random half-spaces:
+ *     anything outside a plane is pushed back onto it. That leaves genuine flat
+ *     faces meeting at hard edges, which is what quarried and shattered stone
+ *     actually looks like, and it is the single biggest difference between this
+ *     and a displaced sphere.
+ *  3. **craters** — bowls with a heaped ejecta rim, punched through the lot.
+ *
+ * The displacement is a pure function of the vertex *direction*, which is what
+ * lets the geometry be non-indexed (needed for flat facets) without splitting
+ * open — duplicated vertices share a direction, so they are moved identically.
+ *
+ * @param {object} options
+ * @param {number} [options.seed]        deterministic shape seed
+ * @param {number} [options.detail]      icosphere subdivisions, 0–3
+ * @param {number} [options.lumpiness]   low-frequency deformation, × the radius
+ * @param {number} [options.noiseScale]  lumps per unit radius
+ * @param {number} [options.roughness]   high-frequency chipping
+ * @param {number} [options.cuts]        planar fracture faces sliced off it
+ * @param {number} [options.cutDepth]    how far in those planes bite, × the radius
+ * @param {number} [options.craters]     impact bowls punched into it
+ * @param {number} [options.craterDepth] how deep those bowls go, × the radius
+ * @param {number} [options.craterSize]  their angular radius, radians
+ */
+export function createAsteroidGeometry({
+  seed = 1,
+  detail = 3,
+  lumpiness = 0.26,
+  noiseScale = 1.5,
+  roughness = 0.16,
+  cuts = 7,
+  cutDepth = 0.2,
+  craters = 5,
+  craterDepth = 0.18,
+  craterSize = 0.5
+} = {}) {
+  const geometry = new IcosahedronGeometry(1, clamp(Math.round(detail), 0, 3)).toNonIndexed();
+  const array = geometry.attributes.position.array;
+
+  /** A deterministic point on the unit sphere. */
+  const direction = (a, b) => {
+    const phi = Math.acos(2 * hash11(a) - 1);
+    const theta = hash11(b) * TAU;
+    const sinPhi = Math.sin(phi);
+    return { x: sinPhi * Math.cos(theta), y: Math.cos(phi), z: sinPhi * Math.sin(theta) };
+  };
+
+  // Cuts and craters are picked once per seed and shared by every vertex, so the
+  // vertex loop below stays a pure lookup.
+  const planes = [];
+  for (let i = 0; i < Math.max(0, Math.round(cuts)); i++) {
+    const n = direction(seed * 2.3 + i * 9.1, seed * 5.7 + i * 4.3);
+    // How far along its own normal the plane sits: 1 is tangent (no bite), less
+    // shaves a face off. Kept above 0.55 so a cut never lops the rock in half.
+    n.offset = 1 - cutDepth * (0.35 + 0.9 * hash11(seed * 13.1 + i * 6.7));
+    planes.push(n);
+  }
+
+  const bowls = [];
+  for (let i = 0; i < Math.max(0, Math.round(craters)); i++) {
+    const c = direction(seed * 3.1 + i * 12.9, seed * 7.7 + i * 5.3);
+    c.radius = Math.max(0.08, craterSize * (0.45 + 0.8 * hash11(seed * 11.3 + i * 3.7)));
+    c.depth = craterDepth * (0.5 + hash11(seed * 17.9 + i * 2.1));
+    bowls.push(c);
+  }
+
+  for (let i = 0; i < array.length; i += 3) {
+    // IcosahedronGeometry(1) hands us unit-length vertices already.
+    const x = array[i];
+    const y = array[i + 1];
+    const z = array[i + 2];
+
+    /* --- 1. the lumpy body --- */
+    let radius = 1;
+    radius += fbmValue(x * noiseScale, y * noiseScale, z * noiseScale, seed, 3) * lumpiness;
+    radius +=
+      fbmValue(x * noiseScale * 4.3, y * noiseScale * 4.3, z * noiseScale * 4.3, seed + 31.7, 2) *
+      roughness *
+      0.5;
+
+    /* --- 2. craters, before the cuts so a cut can shear one in half --- */
+    for (const bowl of bowls) {
+      const angle = Math.acos(clamp(x * bowl.x + y * bowl.y + z * bowl.z, -1, 1));
+      const q = angle / bowl.radius;
+      if (q >= 1.4) continue;
+      radius -= bowl.depth * Math.max(0, 1 - q * q);
+      radius += bowl.depth * 0.5 * smoothstep(0.72, 1.0, q) * (1 - smoothstep(1.0, 1.4, q));
+    }
+
+    radius = Math.max(0.35, radius);
+    let px = x * radius;
+    let py = y * radius;
+    let pz = z * radius;
+
+    /* --- 3. slice off the flat faces --- */
+    for (const plane of planes) {
+      const along = px * plane.x + py * plane.y + pz * plane.z;
+      const over = along - plane.offset;
+      if (over <= 0) continue;
+      // Project back onto the plane. Every vertex outside it lands *on* it, so
+      // the result is a genuinely flat facet, not a squashed curve.
+      px -= plane.x * over;
+      py -= plane.y * over;
+      pz -= plane.z * over;
+    }
+
+    array[i] = px;
+    array[i + 1] = py;
+    array[i + 2] = pz;
+  }
+
+  geometry.attributes.position.needsUpdate = true;
+  // Non-indexed + per-face normals: the facets stay crisp, like the crystals.
+  geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
+  return geometry;
 }
 
 /**

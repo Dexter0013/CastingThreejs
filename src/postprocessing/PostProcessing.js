@@ -164,7 +164,7 @@ export class PostProcessing {
     u.uFlashStrength.value = flash.strength;
     u.uFlashColor.value.copy(flash.color);
 
-    this.distortionPass.uniforms.uScale.value = post.enabled ? 0.045 : 0;
+    this.distortionPass.uniforms.uScale.value = post.enabled ? post.distortion : 0;
     this.distortionPass.enabled = post.enabled;
   }
 

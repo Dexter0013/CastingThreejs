@@ -2,7 +2,7 @@
 
 A linear-skillshot VFX sandbox built with **Three.js**, **Vite** and hand-written **GLSL**.
 
-Two abilities, both cast the same way: press the key to arm, a League-of-Legends style arrow
+Three abilities, all cast the same way: press the key to arm, a League-of-Legends style arrow
 appears on the ground and swings with the mouse, click to fire.
 
 **Q — Frost Lance.** A fracture front races out along the line while a field of ice crystals
@@ -14,12 +14,18 @@ out behind the strike front, holds while it gutters and re-strikes, then blows o
 off it the whole way, the floor underneath takes a branching electric burn and a dark scorch, and
 the far end gets a shell of ionised air.
 
+**R — Cinder Fall.** A burning rock is lobbed downrange on an arc, trailing a raymarched wake of
+burning gas and heating up the whole way: the lava seams splitting its surface prise wider and
+brighter as it comes in. It detonates on arrival, throws its own shattered chunks across the floor, and tears the
+ground open into a network of molten cracks that keep glowing while the crater burns out.
+
 Everything you can see is generated. There are no textures, no sprite sheets and no meshes on
 disk except the character: the crystals are procedural geometry, the bolt is a strip of ribbon
-placed entirely by a vertex shader, the arrow, the rime and the burns are signed-distance and
-noise shaders on quads, and the mist, sparks, chips and glitter are GPU particles.
+placed entirely by a vertex shader, the meteor is an icosphere cratered and sliced by fracture
+planes on the CPU, the arrow, the rime, the burns and the molten cracks are signed-distance and
+noise shaders, and the mist, sparks, chips and glitter are GPU particles.
 
-**Every parameter is a live slider** — 317 of them — and they stay live while the simulation is
+**Every parameter is a live slider** — 538 of them — and they stay live while the simulation is
 paused. That is the point of the project: freeze a frame mid-eruption or mid-strike with **P**,
 then reshape the silhouette, the palette and the timing against a still image.
 

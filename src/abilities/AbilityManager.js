@@ -1,12 +1,14 @@
 import { IceAbility } from './IceAbility.js';
 import { ThunderAbility } from './ThunderAbility.js';
+import { MeteorAbility } from './MeteorAbility.js';
 import { ELEMENTS } from '../config/settings.js';
 import { ObjectPool } from '../utils/ObjectPool.js';
 
 /** Registry: adding an ability means adding one line here. */
 const ABILITY_TYPES = {
   ice: IceAbility,
-  thunder: ThunderAbility
+  thunder: ThunderAbility,
+  meteor: MeteorAbility
 };
 
 const MAX_CONCURRENT = 4;
