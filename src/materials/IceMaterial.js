@@ -1,4 +1,4 @@
-import { MeshStandardMaterial, Color } from 'three';
+import { MeshStandardMaterial, Color, DoubleSide } from 'three';
 import { noiseGLSL } from '../shaders/lib/noise.glsl.js';
 import { frame } from '../core/FrameUniforms.js';
 import { settings } from '../config/settings.js';
@@ -36,6 +36,10 @@ export function createIceMaterial(environment) {
     metalness: 0.0,
     flatShading: true,
     transparent: true,
+    // Ice is translucent, so the far wall of a crystal is part of what you see
+    // through the near one. Culling it left the interior empty and the spikes
+    // read as hollow shells wherever the body was thin.
+    side: DoubleSide,
     // Kept on: the crystals are near-opaque, and writing depth is what stops the
     // field from sorting through itself and lets the mist fade against it.
     depthWrite: true

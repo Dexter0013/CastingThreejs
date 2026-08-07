@@ -173,14 +173,14 @@ export const settings = {
     rubbleScale: 0.3,
 
     /* --- an individual crystal --- */
-    radius: 0.26, // base radius, metres
-    radiusJitter: 0.45,
-    taper: 0.13, // tip radius as a fraction of the base
-    facets: 6, // sides of the prism (5–8 read best)
-    roughness: 0.28, // how far the facets are pushed off a clean prism
-    bend: 0.22, // sideways curve from base to tip
+    radius: 0.41, // base radius, metres
+    radiusJitter: 0.93,
+    taper: 0.69, // tip radius as a fraction of the base
+    facets: 7, // sides of the prism (5–8 read best)
+    roughness: 0.09, // how far the facets are pushed off a clean prism
+    bend: 0.66, // sideways curve from base to tip
     lean: 0.42, // radians the spikes lean away from the caster
-    leanJitter: 0.55,
+    leanJitter: 1.5,
     twist: 1.0, // random yaw, 0..1 of a full turn
 
     /* --- the eruption --- */
@@ -234,7 +234,7 @@ export const settings = {
     mistSize: 1.15,
     mistSpeed: 1.3,
     mistLifetime: 2.8,
-    mistOpacity: 0.5,
+    mistOpacity: 0.05,
     mistRise: 0.35, // how fast the fog lifts, metres/second
     shardRate: 150, // ice chips thrown off the eruption
     shardSize: 0.075,
