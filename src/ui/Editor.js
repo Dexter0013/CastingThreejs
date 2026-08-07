@@ -40,12 +40,10 @@ export class Editor {
     this._buildCamera();
     this._buildCharacter();
 
-    // Everything starts collapsed except the two abilities' top-level folders —
-    // they are what the sandbox is for, and with two of them the panel only
-    // stays readable if their sections open one at a time.
+    // Everything starts collapsed, top-level folders included. There are enough
+    // controls here that any folder left open pushes the rest off the screen,
+    // so the panel opens as a list of sections and the user picks one.
     this.gui.foldersRecursive().forEach((folder) => folder.close());
-    this.iceFolder.open();
-    this.thunderFolder.open();
   }
 
   /* ------------------------------------------------------------------ */
@@ -54,6 +52,24 @@ export class Editor {
 
   static range(folder, object, key, min, max, step, label) {
     return folder.add(object, key, min, max, step).name(label ?? key);
+  }
+
+  /**
+   * The four colour stops of a particle system's lifetime gradient.
+   *
+   * `ParticleSystem#setGradient` samples them across a particle's own life, so
+   * they are labelled by *when* they are seen rather than by what they are —
+   * `A` is the instant it is born, `D` is the moment it dies.
+   *
+   * @param {string} prefix settings key without the A/B/C/D suffix
+   */
+  static gradient(folder, object, prefix, title) {
+    const group = folder.addFolder(title);
+    group.addColor(object, `${prefix}A`).name('birth');
+    group.addColor(object, `${prefix}B`).name('early');
+    group.addColor(object, `${prefix}C`).name('late');
+    group.addColor(object, `${prefix}D`).name('death');
+    return group;
   }
 
   refresh() {
@@ -356,6 +372,8 @@ export class Editor {
     R(ground, c, 'shockRadius', 0.5, 20, 0.1, 'shockwave radius');
     ground.addColor(c, 'colorFrost').name('frost');
     ground.addColor(c, 'colorFrostEdge').name('frost edge');
+    ground.addColor(c, 'colorShockA').name('shockwave ring');
+    ground.addColor(c, 'colorShockB').name('shockwave crest');
 
     const mist = folder.addFolder('Mist, chips & glitter');
     R(mist, c, 'mistRate', 0, 900, 1, 'mist rate');
@@ -375,6 +393,9 @@ export class Editor {
     R(mist, c, 'sparkleLifetime', 0.2, 8, 0.05, 'glitter lifetime');
     R(mist, c, 'sparkleRise', -2, 8, 0.05, 'glitter rise');
     R(mist, c, 'sparkleTurbulence', 0, 3, 0.01, 'glitter turbulence');
+    Editor.gradient(mist, c, 'colorMist', 'Mist colour');
+    Editor.gradient(mist, c, 'colorShard', 'Chip colour');
+    Editor.gradient(mist, c, 'colorSparkle', 'Glitter colour');
 
     const impact = folder.addFolder('Impact');
     R(impact, c, 'burstSize', 0.2, 14, 0.05, 'burst size');
@@ -384,6 +405,10 @@ export class Editor {
     R(impact, c, 'shakeDuration', 0.1, 4, 0.01, 'shake duration');
     R(impact, c, 'impactFlash', 0, 2, 0.01, 'screen flash');
     R(impact, c, 'rumble', 0, 0.5, 0.005, 'travel rumble');
+    impact.addColor(c, 'colorBurstA').name('vapour shell');
+    impact.addColor(c, 'colorBurstB').name('shell body');
+    impact.addColor(c, 'colorBurstC').name('plates & rim');
+    impact.addColor(c, 'colorFlash').name('screen flash colour');
 
     const light = folder.addFolder('Dynamic light');
     R(light, c, 'lightIntensity', 0, 80, 0.1, 'light intensity');
@@ -482,6 +507,8 @@ export class Editor {
     ground.addColor(c, 'colorArc').name('burn');
     ground.addColor(c, 'colorEmber').name('ember');
     ground.addColor(c, 'colorScorch').name('scorch');
+    ground.addColor(c, 'colorShockA').name('shockwave ring');
+    ground.addColor(c, 'colorShockB').name('shockwave crest');
 
     const sparks = folder.addFolder('Sparks & motes');
     R(sparks, c, 'sparkRate', 0, 1200, 1, 'spark rate');
@@ -496,7 +523,8 @@ export class Editor {
     R(sparks, c, 'moteLifetime', 0.1, 8, 0.05, 'mote lifetime');
     R(sparks, c, 'moteRise', -3, 8, 0.05, 'mote rise');
     R(sparks, c, 'moteTurbulence', 0, 3, 0.01, 'mote turbulence');
-    sparks.addColor(c, 'colorSpark').name('spark');
+    Editor.gradient(sparks, c, 'colorSpark', 'Spark colour');
+    Editor.gradient(sparks, c, 'colorMote', 'Mote colour');
 
     const dust = folder.addFolder('Smoke & debris');
     R(dust, c, 'smokeRate', 0, 500, 1, 'smoke rate');
@@ -510,13 +538,17 @@ export class Editor {
     R(dust, c, 'debrisSpeed', 0, 25, 0.1, 'debris speed');
     R(dust, c, 'debrisLifetime', 0.1, 5, 0.05, 'debris lifetime');
     R(dust, c, 'debrisGravity', -50, 0, 0.1, 'debris gravity');
-    dust.addColor(c, 'colorSmoke').name('smoke');
-    dust.addColor(c, 'colorDebris').name('debris');
+    Editor.gradient(dust, c, 'colorSmoke', 'Smoke colour');
+    Editor.gradient(dust, c, 'colorDebris', 'Debris colour');
 
     const impact = folder.addFolder('Muzzle & impact');
     R(impact, c, 'muzzleSize', 0.05, 6, 0.05, 'muzzle size');
     R(impact, c, 'muzzleIntensity', 0, 5, 0.01, 'muzzle intensity');
     R(impact, c, 'castFlash', 0, 2, 0.01, 'flash on release');
+    impact.addColor(c, 'colorMuzzleA').name('muzzle shell');
+    impact.addColor(c, 'colorMuzzleB').name('muzzle body');
+    impact.addColor(c, 'colorMuzzleC').name('muzzle arcs');
+    impact.addColor(c, 'colorCastFlash').name('release flash colour');
     R(impact, c, 'burstSize', 0.2, 14, 0.05, 'burst size');
     R(impact, c, 'burstIntensity', 0, 5, 0.01, 'burst intensity');
     R(impact, c, 'burstSparks', 0, 600, 1, 'burst sparks');
@@ -525,6 +557,10 @@ export class Editor {
     R(impact, c, 'shakeDuration', 0.1, 4, 0.01, 'shake duration');
     R(impact, c, 'impactFlash', 0, 2, 0.01, 'screen flash');
     R(impact, c, 'rumble', 0, 0.5, 0.005, 'travel rumble');
+    impact.addColor(c, 'colorBurstA').name('burst shell');
+    impact.addColor(c, 'colorBurstB').name('burst body');
+    impact.addColor(c, 'colorBurstC').name('burst arcs');
+    impact.addColor(c, 'colorFlash').name('impact flash colour');
 
     const light = folder.addFolder('Dynamic light');
     R(light, c, 'lightIntensity', 0, 120, 0.5, 'light intensity');

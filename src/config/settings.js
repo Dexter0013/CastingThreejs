@@ -234,25 +234,45 @@ export const settings = {
     colorFrost: '#cdefff',
     colorFrostEdge: '#5fd0ff',
     shockRadius: 5.5, // impact shockwave ring, metres
+    colorShockA: '#5fd0ff', // body of the shockwave ring
+    colorShockB: '#f2feff', // its crest
 
     /* --- mist, shards and glitter --- */
+    /**
+     * Every particle system is coloured by a four-stop gradient sampled over the
+     * particle's own lifetime: `A` the instant it is born, `D` as it dies. They
+     * are spelled out rather than derived from the crystal palette so the fog can
+     * be warmed, or the glitter recoloured, without touching the ice itself.
+     */
     mistRate: 260, // rolling ground fog, particles/second
     mistSize: 1.15,
     mistSpeed: 1.3,
     mistLifetime: 2.8,
     mistOpacity: 0.05,
     mistRise: 0.35, // how fast the fog lifts, metres/second
+    colorMistA: '#f2feff',
+    colorMistB: '#cdefff',
+    colorMistC: '#a9e4ff',
+    colorMistD: '#09304c',
     shardRate: 150, // ice chips thrown off the eruption
     shardSize: 0.075,
     shardSpeed: 7.0,
     shardLifetime: 1.7,
     shardGravity: -14.0,
+    colorShardA: '#f2feff',
+    colorShardB: '#a9e4ff',
+    colorShardC: '#a9e4ff',
+    colorShardD: '#12496f',
     sparkleRate: 130, // the rising glitter plume
     sparkleSize: 0.055,
     sparkleSpeed: 3.4,
     sparkleLifetime: 2.6,
     sparkleRise: 1.6, // upward drift, metres/second
     sparkleTurbulence: 0.55,
+    colorSparkleA: '#f2feff',
+    colorSparkleB: '#57c9ff',
+    colorSparkleC: '#a9e4ff',
+    colorSparkleD: '#041e32',
 
     /* --- dynamic light --- */
     lightIntensity: 9,
@@ -266,7 +286,13 @@ export const settings = {
     impactShake: 0.7,
     impactFlash: 0.12,
     shakeDuration: 0.9,
-    rumble: 0.06 // continuous shake while the front travels
+    rumble: 0.06, // continuous shake while the front travels
+    // The frost shell mixes A→B across its billowing noise and lays C over the
+    // crystallised plates and the fresnel rim, so C is the one that reads hot.
+    colorBurstA: '#a9e4ff',
+    colorBurstB: '#cdefff',
+    colorBurstC: '#f2feff',
+    colorFlash: '#f2feff' // the full-screen flash on impact
   },
 
   /* ================================================================== */
@@ -364,34 +390,55 @@ export const settings = {
     colorScorch: '#080b11',
     colorEmber: '#4aa8ff',
     shockRadius: 6.5, // impact shockwave ring, metres
+    colorShockA: '#c9ecff', // body of the shockwave ring
+    colorShockB: '#ffffff', // its crest
 
     /* --- sparks, motes, smoke and debris --- */
+    /**
+     * As in `ice`: each system is coloured by a four-stop gradient sampled over
+     * the particle's own lifetime, `A` at birth through `D` as it dies. Spelled
+     * out rather than derived from the bolt palette, so the sparks can be made
+     * to cool to orange while the filaments stay blue.
+     */
     sparkRate: 240, // sparks thrown off the bolt, particles/second
     sparkSize: 0.16,
     sparkSpeed: 9.0,
     sparkLifetime: 0.5,
     sparkGravity: -12.0,
     sparkStretch: 0.18, // how far a spark smears along its velocity
+    colorSparkA: '#ffffff',
+    colorSparkB: '#ffffff',
+    colorSparkC: '#c9ecff',
+    colorSparkD: '#1e5b95',
     moteRate: 90, // the slow ionised motes drifting off the bolt
     moteSize: 0.05,
     moteSpeed: 1.5,
     moteLifetime: 1.6,
     moteRise: 1.0, // upward drift, metres/second
     moteTurbulence: 0.7,
+    colorMoteA: '#ffffff',
+    colorMoteB: '#c9ecff',
+    colorMoteC: '#3aa0ff',
+    colorMoteD: '#02195f',
     smokeRate: 50, // thin haze off the scorched floor
     smokeSize: 1.0,
     smokeSpeed: 1.1,
     smokeLifetime: 2.2,
     smokeOpacity: 0.06,
     smokeRise: 0.55,
+    colorSmokeA: '#3d546e',
+    colorSmokeB: '#33475e',
+    colorSmokeC: '#33475e',
+    colorSmokeD: '#1c2938',
     debrisRate: 24, // chips kicked off the floor under the bolt
     debrisSize: 0.055,
     debrisSpeed: 5.0,
     debrisLifetime: 1.3,
     debrisGravity: -17.0,
-    colorSpark: '#ffffff',
-    colorSmoke: '#33475e',
-    colorDebris: '#1c222a',
+    colorDebrisA: '#252c36',
+    colorDebrisB: '#1c222a',
+    colorDebrisC: '#1c222a',
+    colorDebrisD: '#1c222a',
 
     /* --- dynamic light --- */
     lightIntensity: 26,
@@ -401,9 +448,16 @@ export const settings = {
     lightFlickerSpeed: 26,
 
     /* --- the muzzle and the impact --- */
+    // Both shells are the same shader: A→B is mixed across the billowing noise
+    // and stays nearly empty, and C is what the racing filaments and the fresnel
+    // rim are drawn in — so C is the one carrying the read.
     muzzleSize: 0.55, // the flash at the hand, metres
     muzzleIntensity: 1.9,
     castFlash: 0.1, // screen flash on release
+    colorMuzzleA: '#3aa0ff',
+    colorMuzzleB: '#c9ecff',
+    colorMuzzleC: '#ffffff',
+    colorCastFlash: '#c9ecff',
     burstSize: 3.0, // the shell at the impact point, metres
     burstIntensity: 1.4,
     burstSparks: 170, // extra sparks thrown at the impact
@@ -411,7 +465,11 @@ export const settings = {
     impactShake: 0.8,
     shakeDuration: 0.55,
     impactFlash: 0.28,
-    rumble: 0.03 // continuous shake while the front travels
+    rumble: 0.03, // continuous shake while the front travels
+    colorBurstA: '#3aa0ff',
+    colorBurstB: '#c9ecff',
+    colorBurstC: '#ffffff',
+    colorFlash: '#c9ecff' // the full-screen flash on impact
   },
 
   /* ------------------------------------------------------------------ */

@@ -1,4 +1,4 @@
-import { Mesh, Vector3, Color } from 'three';
+import { Mesh, Vector3 } from 'three';
 import { Ability, AbilityPhase } from './Ability.js';
 import { createLightningMaterial, BoltPass } from '../materials/LightningMaterial.js';
 import { createBoltRibbonGeometry } from '../assets/ProceduralGeometry.js';
@@ -31,8 +31,6 @@ const _pos = new Vector3();
 const _dir = new Vector3();
 const _origin = new Vector3();
 const _target = new Vector3();
-const _gradA = new Color();
-const _gradB = new Color();
 
 /**
  * THUNDER — a bolt thrown from the hand along the aimed line.
@@ -298,12 +296,12 @@ export class ThunderAbility extends Ability {
     for (const material of this.boltMaterials) material.userData.sync(state);
 
     /* --- the particle systems, all four of them --- */
-    const core = getColor(c.colorCore);
-    const inner = getColor(c.colorInner);
-    const outer = getColor(c.colorOuter);
-    const spark = getColor(c.colorSpark);
-
-    this.sparks.setGradient(spark, core, inner, _gradA.copy(outer).multiplyScalar(0.3));
+    this.sparks.setGradient(
+      getColor(c.colorSparkA),
+      getColor(c.colorSparkB),
+      getColor(c.colorSparkC),
+      getColor(c.colorSparkD)
+    );
     this.sparks.uniforms.uGravity.value.set(0, c.sparkGravity, 0);
     this.sparks.uniforms.uSizeScale.value = c.sparkSize * g.particleSize * 7;
     this.sparks.uniforms.uLifeScale.value = c.sparkLifetime * 0.5 * g.particleLifetime;
@@ -313,7 +311,12 @@ export class ThunderAbility extends Ability {
     this.sparks.uniforms.uStretch.value = c.sparkStretch;
     this.sparks.uniforms.uTurbulence.value = 0.25 * g.turbulence;
 
-    this.motes.setGradient(core, inner, outer, _gradB.copy(getColor(c.colorHalo)).multiplyScalar(0.2));
+    this.motes.setGradient(
+      getColor(c.colorMoteA),
+      getColor(c.colorMoteB),
+      getColor(c.colorMoteC),
+      getColor(c.colorMoteD)
+    );
     this.motes.uniforms.uGravity.value.set(0, c.moteRise, 0);
     this.motes.uniforms.uSizeScale.value = c.moteSize * g.particleSize * 7;
     this.motes.uniforms.uLifeScale.value = c.moteLifetime * 0.5 * g.particleLifetime;
@@ -322,8 +325,12 @@ export class ThunderAbility extends Ability {
     this.motes.uniforms.uGlow.value = 0.9 * g.glow;
     this.motes.uniforms.uTurbulence.value = c.moteTurbulence * g.turbulence;
 
-    const smoke = getColor(c.colorSmoke);
-    this.smoke.setGradient(_gradA.copy(smoke).multiplyScalar(1.4), smoke, smoke, _gradB.copy(smoke).multiplyScalar(0.35));
+    this.smoke.setGradient(
+      getColor(c.colorSmokeA),
+      getColor(c.colorSmokeB),
+      getColor(c.colorSmokeC),
+      getColor(c.colorSmokeD)
+    );
     this.smoke.uniforms.uGravity.value.set(0, c.smokeRise, 0);
     this.smoke.uniforms.uSizeScale.value = c.smokeSize * g.particleSize;
     this.smoke.uniforms.uLifeScale.value = c.smokeLifetime * 0.5 * g.particleLifetime;
@@ -331,8 +338,12 @@ export class ThunderAbility extends Ability {
     this.smoke.uniforms.uOpacity.value = c.smokeOpacity * g.opacity;
     this.smoke.uniforms.uTurbulence.value = 0.35 * g.turbulence;
 
-    const chip = getColor(c.colorDebris);
-    this.debris.setGradient(_gradA.copy(chip).multiplyScalar(1.6), chip, chip, chip);
+    this.debris.setGradient(
+      getColor(c.colorDebrisA),
+      getColor(c.colorDebrisB),
+      getColor(c.colorDebrisC),
+      getColor(c.colorDebrisD)
+    );
     this.debris.uniforms.uGravity.value.set(0, c.debrisGravity, 0);
     this.debris.uniforms.uSizeScale.value = c.debrisSize * g.particleSize * 7;
     this.debris.uniforms.uLifeScale.value = g.particleLifetime;
@@ -355,9 +366,9 @@ export class ThunderAbility extends Ability {
       opacity: 0.9,
       fresnel: 1.5,
       displace: 0.5,
-      colorA: getColor(c.colorOuter),
-      colorB: getColor(c.colorInner),
-      colorC: getColor(c.colorCore)
+      colorA: getColor(c.colorMuzzleA),
+      colorB: getColor(c.colorMuzzleB),
+      colorC: getColor(c.colorMuzzleC)
     });
 
     _emit.position = _pos;
@@ -377,7 +388,7 @@ export class ThunderAbility extends Ability {
     _emit.time = frame.uTime.value;
     this.sparks.emit(Math.round(40 * g.particleCount), _emit);
 
-    this.ctx.flash.trigger(getColor(c.colorInner), c.castFlash * g.explosionIntensity);
+    this.ctx.flash.trigger(getColor(c.colorCastFlash), c.castFlash * g.explosionIntensity);
     this.lightBoost = c.lightIntensity * 0.8 * g.explosionIntensity;
   }
 
@@ -549,9 +560,9 @@ export class ThunderAbility extends Ability {
       fresnel: 1.6,
       displace: 0.6,
       squash: 0.8,
-      colorA: getColor(c.colorOuter),
-      colorB: getColor(c.colorInner),
-      colorC: getColor(c.colorCore)
+      colorA: getColor(c.colorBurstA),
+      colorB: getColor(c.colorBurstB),
+      colorC: getColor(c.colorBurstC)
     });
 
     /* the ring that snaps outward across the floor */
@@ -561,8 +572,8 @@ export class ThunderAbility extends Ability {
       life: 0.6,
       width: 0.05,
       intensity: 1.0,
-      colorA: getColor(c.colorInner),
-      colorB: getColor(c.colorCore)
+      colorA: getColor(c.colorShockA),
+      colorB: getColor(c.colorShockB)
     });
 
     /* a wide burn where it grounded out */
@@ -623,7 +634,7 @@ export class ThunderAbility extends Ability {
       1 / Math.max(0.1, c.shakeDuration),
       26
     );
-    this.ctx.flash.trigger(getColor(c.colorInner), c.impactFlash * g.explosionIntensity);
+    this.ctx.flash.trigger(getColor(c.colorFlash), c.impactFlash * g.explosionIntensity);
     this.lightBoost = c.lightIntensity * 1.5 * g.explosionIntensity;
   }
 

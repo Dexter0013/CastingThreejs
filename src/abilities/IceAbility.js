@@ -3,8 +3,7 @@ import {
   InstancedBufferAttribute,
   Object3D,
   Vector3,
-  Quaternion,
-  Color
+  Quaternion
 } from 'three';
 import { Ability, AbilityPhase } from './Ability.js';
 import { createIceMaterial } from '../materials/IceMaterial.js';
@@ -39,8 +38,6 @@ const _up = new Vector3(0, 1, 0);
 const _dummy = new Object3D();
 const _spin = new Quaternion();
 const _tilt = new Quaternion();
-const _gradA = new Color();
-const _gradB = new Color();
 
 /**
  * ICE — a glacial eruption along the aimed line.
@@ -488,16 +485,11 @@ export class IceAbility extends Ability {
     this._syncGeometry();
     this.material.userData.sync();
 
-    const ice = getColor(c.colorIce);
-    const rim = getColor(c.colorRim);
-    const deep = getColor(c.colorDeep);
-    const core = getColor(c.colorCore);
-
     this.mist.setGradient(
-      rim,
-      _gradA.copy(getColor(c.colorFrost)),
-      ice,
-      _gradB.copy(deep).multiplyScalar(0.45)
+      getColor(c.colorMistA),
+      getColor(c.colorMistB),
+      getColor(c.colorMistC),
+      getColor(c.colorMistD)
     );
     this.mist.uniforms.uGravity.value.set(0, c.mistRise, 0);
     this.mist.uniforms.uSizeScale.value = c.mistSize * g.particleSize;
@@ -506,14 +498,24 @@ export class IceAbility extends Ability {
     this.mist.uniforms.uOpacity.value = c.mistOpacity * g.opacity;
     this.mist.uniforms.uTurbulence.value = 0.4 * g.turbulence;
 
-    this.shards.setGradient(rim, ice, ice, deep);
+    this.shards.setGradient(
+      getColor(c.colorShardA),
+      getColor(c.colorShardB),
+      getColor(c.colorShardC),
+      getColor(c.colorShardD)
+    );
     this.shards.uniforms.uGravity.value.set(0, c.shardGravity, 0);
     this.shards.uniforms.uSizeScale.value = c.shardSize * g.particleSize * 7;
     this.shards.uniforms.uLifeScale.value = g.particleLifetime;
     this.shards.uniforms.uSpeedScale.value = g.particleSpeed;
     this.shards.uniforms.uOpacity.value = g.opacity;
 
-    this.glitter.setGradient(rim, core, ice, _gradB.copy(deep).multiplyScalar(0.2));
+    this.glitter.setGradient(
+      getColor(c.colorSparkleA),
+      getColor(c.colorSparkleB),
+      getColor(c.colorSparkleC),
+      getColor(c.colorSparkleD)
+    );
     this.glitter.uniforms.uGravity.value.set(0, c.sparkleRise, 0);
     this.glitter.uniforms.uSizeScale.value = c.sparkleSize * g.particleSize * 7;
     this.glitter.uniforms.uLifeScale.value = c.sparkleLifetime * 0.5 * g.particleLifetime;
@@ -659,9 +661,9 @@ export class IceAbility extends Ability {
       fresnel: 1.3,
       displace: 0.55,
       squash: 0.72,
-      colorA: getColor(c.colorIce),
-      colorB: getColor(c.colorFrost),
-      colorC: getColor(c.colorRim)
+      colorA: getColor(c.colorBurstA),
+      colorB: getColor(c.colorBurstB),
+      colorC: getColor(c.colorBurstC)
     });
 
     /* the ring that snaps outward across the floor */
@@ -670,8 +672,8 @@ export class IceAbility extends Ability {
       life: 0.75,
       width: 0.06,
       intensity: 0.9,
-      colorA: getColor(c.colorFrostEdge),
-      colorB: getColor(c.colorRim)
+      colorA: getColor(c.colorShockA),
+      colorB: getColor(c.colorShockB)
     });
 
     /* a broad rime patch under the cluster */
@@ -721,7 +723,7 @@ export class IceAbility extends Ability {
       1 / Math.max(0.1, c.shakeDuration),
       19
     );
-    this.ctx.flash.trigger(getColor(c.colorRim), c.impactFlash * g.explosionIntensity);
+    this.ctx.flash.trigger(getColor(c.colorFlash), c.impactFlash * g.explosionIntensity);
     this.lightBoost = c.lightIntensity * 1.6 * g.explosionIntensity;
   }
 

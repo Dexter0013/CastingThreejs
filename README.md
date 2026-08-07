@@ -299,20 +299,27 @@ target, blurred twice and projected onto the ground.
 ## Editor and presets
 
 Press **G** for the panel. Folders: Presets, Global, Aim indicator, Frost Lance, Storm Lance,
-Environment, Post processing, Camera, Character.
+Environment, Post processing, Camera, Character. Every folder starts collapsed — there are enough
+controls here that one open section pushes the rest off the screen.
 
 - **Global** multipliers scale everything at once (speed, glow, noise, particles, lights, impact
   intensity, camera shake, time scale…).
 - **Aim indicator** — the arrow's silhouette in metres, its outline and fill, the chevrons and
   frost, and the rings and rosette.
-- **Frost Lance** (95 controls) — the cast, the footprint, the silhouette, the crystal itself, the
-  eruption timing, the ice material, the frost on the ground, mist/chips/glitter, the impact and
-  the dynamic light.
-- **Storm Lance** (100 controls) — the cast, where the bolt leaves the hand, the bundle, one
-  filament, the ribbon, flicker and restrike, the bolt's colour, the burns on the ground,
-  sparks/motes/smoke/debris, the muzzle and impact, and the dynamic light.
+- **Frost Lance** (113 controls, 25 of them colours) — the cast, the footprint, the silhouette,
+  the crystal itself, the eruption timing, the ice material, the frost on the ground,
+  mist/chips/glitter, the impact and the dynamic light.
+- **Storm Lance** (123 controls, 34 of them colours) — the cast, where the bolt leaves the hand,
+  the bundle, one filament, the ribbon, flicker and restrike, the bolt's colour, the burns on the
+  ground, sparks/motes/smoke/debris, the muzzle and impact, and the dynamic light.
 - **Presets** save to `localStorage`, and can be duplicated, deleted, exported to JSON, imported
   from JSON, or reset to the shipped defaults.
+
+Both abilities expose **every** colour they draw with, and none is derived from another: the
+crystal palette, the bolt palette, the ground marks, the impact shells, the shockwave rings, the
+screen flashes, and a four-stop lifetime gradient (`birth → early → late → death`) for each of the
+seven particle systems. Tinting the fog without touching the ice, or cooling the sparks to orange
+while the filaments stay blue, is a picker away.
 
 Presets are plain snapshots of the settings tree, so an exported file is readable and editable by
 hand.
