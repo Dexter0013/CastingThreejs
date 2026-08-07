@@ -1,25 +1,19 @@
-import { FireAbility } from './FireAbility.js';
-import { WaterAbility } from './WaterAbility.js';
-import { EarthAbility } from './EarthAbility.js';
-import { WindAbility } from './WindAbility.js';
+import { IceAbility } from './IceAbility.js';
 import { ELEMENTS } from '../config/settings.js';
 import { ObjectPool } from '../utils/ObjectPool.js';
 
-/** Registry: adding an element means adding one line here. */
+/** Registry: adding an ability means adding one line here. */
 const ABILITY_TYPES = {
-  fire: FireAbility,
-  water: WaterAbility,
-  earth: EarthAbility,
-  wind: WindAbility
+  ice: IceAbility
 };
 
-const MAX_CONCURRENT = 8;
+const MAX_CONCURRENT = 4;
 
 /**
  * Spawns, updates and recycles abilities.
  *
- * Instances are pooled per element: casting fire fifty times constructs at most
- * a handful of FireAbility objects, and every one of them keeps its meshes and
+ * Instances are pooled per type: casting fifty times constructs at most a
+ * handful of IceAbility objects, and every one of them keeps its meshes and
  * materials for the lifetime of the app. Nothing is built during a cast.
  */
 export class AbilityManager {
@@ -52,10 +46,14 @@ export class AbilityManager {
   }
 
   /**
-   * Cast the currently selected element along `curve`.
+   * Cast the selected ability along a line.
+   *
+   * @param {THREE.Vector3} origin     on the floor
+   * @param {THREE.Vector3} direction  unit, flat
+   * @param {number} distance          metres
    * @returns {import('./Ability.js').Ability|null}
    */
-  cast(curve, element = this.selected) {
+  cast(origin, direction, distance, element = this.selected) {
     if (!ABILITY_TYPES[element]) return null;
 
     // Retire the oldest cast rather than letting the scene grow without bound.
@@ -66,7 +64,7 @@ export class AbilityManager {
     }
 
     const ability = this.pools.get(element).acquire();
-    ability.spawn(curve);
+    ability.spawn(origin, direction, distance);
     this.active.push(ability);
     return ability;
   }
@@ -92,7 +90,7 @@ export class AbilityManager {
     this.active.length = 0;
   }
 
-  /** The most recently cast, still-travelling ability — used to frame the camera. */
+  /** The most recent still-running cast — used to frame the camera. */
   get focus() {
     for (let i = this.active.length - 1; i >= 0; i--) {
       if (this.active[i].isActive) return this.active[i];

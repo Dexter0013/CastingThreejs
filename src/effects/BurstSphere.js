@@ -18,7 +18,8 @@ export const BurstMode = Object.freeze({
   FIRE: 0, // billowing fireball
   WATER: 1, // splash dome, fresnel heavy
   AIR: 2, // thin pressure shell
-  EARTH: 3 // dense dust ball
+  EARTH: 3, // dense dust ball
+  FROST: 4 // shell of freezing vapour tearing into plates
 });
 
 const BURST_VERTEX = /* glsl */ `
@@ -114,9 +115,21 @@ const BURST_FRAGMENT = /* glsl */ `
       color = mix(uColorA, uColorB, fres);
       alpha *= (1.0 - uAge) * fres * 0.85 * dis.x;
 
-    #else                                   /* EARTH */
+    #elif BURST_MODE == 3                   /* EARTH */
       color = mix(uColorA, uColorB, heat * 0.8);
       alpha *= (1.0 - uAge) * (0.5 + heat * 0.4) * dis.x;
+
+    #else                                   /* FROST */
+      // Freezing vapour rather than an explosion: the billowing noise the vertex
+      // stage already computed is reused as a crystallisation mask, so the shell
+      // goes glassy and opaque in plates and stays clear between them — it tears
+      // apart as it expands instead of fading out as a ball.
+      float plates = smoothstep(0.42, 0.95, heat);
+      float rime = smoothstep(0.55, 0.05, voronoi2(vNormalW.xy * 9.0 + vNormalW.z * 3.0 + uSeed).x);
+      color = mix(uColorA, uColorB, heat * 0.9);
+      color = mix(color, uColorC * (0.7 + 0.6 * rime), plates);
+      color += uColorC * fres * 1.3;
+      alpha *= (1.0 - uAge) * (0.16 + fres * 0.95 + plates * 0.7) * dis.x;
     #endif
 
     alpha = clamp(alpha, 0.0, 1.0);

@@ -13,13 +13,19 @@ import { sharedUniforms } from '../core/FrameUniforms.js';
 import { LAYER } from '../core/Layers.js';
 import { ObjectPool } from '../utils/ObjectPool.js';
 
+/**
+ * Only SHOCKWAVE and FROST are used by the live ability; the rest are generic
+ * ground marks kept for whatever gets built next, and cost nothing until one is
+ * spawned (three compiles a program per decal type, on first use).
+ */
 export const DecalType = Object.freeze({
   SCORCH: 0, // burnt ground with cooling embers  (fire)
   RIPPLE: 1, // expanding water ring              (water)
   CRACK: 2, // radial fractures with hot glow     (earth)
   SHOCKWAVE: 3, // thin expanding ring            (all impacts)
   DUSTRING: 4, // soft ground-hugging dust puff   (earth / wind)
-  FOAM: 5 // spreading sea foam over wet stone    (water)
+  FOAM: 5, // spreading sea foam over wet stone   (water)
+  FROST: 6 // rime creeping outward in plates     (ice)
 });
 
 const DECAL_VERTEX = /* glsl */ `
@@ -92,6 +98,32 @@ const DECAL_FRAGMENT = /* glsl */ `
       float puff = smoothstep(radius, radius * 0.35, d) * (0.6 + n * 0.5);
       alpha = puff * (1.0 - uAge) * 0.7;
       color = mix(uColorA, uColorB, n * 0.5 + 0.5);
+
+    #elif DECAL == 6                                 /* FROST */
+      // Rime spreading out from where the ground was fractured.
+      //
+      // Two structures stacked: an advancing *front* whose radius is dragged
+      // into fingers by angular noise (frost never creeps as a circle), and a
+      // voronoi cell field underneath it — the seams between plates are where
+      // rime piles up thickest, which is what stops the patch reading as spilt
+      // paint. uWidth carries the crystal sharpness.
+      float grow = pow(uAge, 0.32);
+      float ang = atan(c.y, c.x);
+      float fingers = 0.70 + 0.4 * snoise(vec3(cos(ang), sin(ang), uSeed * 6.0) * 3.2);
+      float n = fbm3(vec3(c * 3.4, uSeed * 9.0));
+      float edge = d + n * 0.22;
+      float reach = grow * fingers;
+
+      float sheet = smoothstep(reach, reach - 0.34, edge);
+      vec2 cell = voronoi2(c * (4.0 + uWidth * 7.0) + uSeed * 20.0);
+      float seams = smoothstep(0.30, 0.02, cell.x);
+      float rim = smoothstep(0.10, 0.0, abs(edge - reach));
+
+      float mask = clamp(sheet * (0.32 + 0.8 * seams) + rim * 0.85, 0.0, 1.0);
+      alpha = mask * fadeOut;
+      color = mix(uColorA, uColorB, clamp(seams * 0.8 + rim, 0.0, 1.0));
+      // The growing edge is still freezing, so it stays lit while it advances.
+      color += uColorB * rim * 1.7 * (1.0 - smoothstep(0.0, 0.5, uAge));
 
     #else                                            /* FOAM */
       // A sheet of foam thrown outward by the impact, which then drains from

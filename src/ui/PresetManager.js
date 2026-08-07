@@ -1,7 +1,9 @@
 import { settings, applySettings, snapshotSettings, DEFAULT_SETTINGS } from '../config/settings.js';
 
-const STORAGE_KEY = 'bending-sandbox.presets.v1';
-const LAST_KEY = 'bending-sandbox.lastPreset';
+// Namespaced afresh: the settings tree was rebuilt around the ice ability, so
+// presets saved against the old elemental blocks would merge into nothing.
+const STORAGE_KEY = 'frost-sandbox.presets.v1';
+const LAST_KEY = 'frost-sandbox.lastPreset';
 
 /**
  * Preset persistence.
@@ -86,7 +88,7 @@ export class PresetManager {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `${(name ?? 'bending-settings').replace(/\s+/g, '-').toLowerCase()}.json`;
+    anchor.download = `${(name ?? 'frost-settings').replace(/\s+/g, '-').toLowerCase()}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
   }
@@ -97,7 +99,7 @@ export class PresetManager {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = 'bending-presets.json';
+    anchor.download = 'frost-presets.json';
     anchor.click();
     URL.revokeObjectURL(url);
   }
@@ -119,7 +121,7 @@ export class PresetManager {
           const data = JSON.parse(await file.text());
           // A settings snapshot always has a `global` block; anything else is
           // treated as a preset collection.
-          if (data && data.global && data.fire) {
+          if (data && data.global && data.ice) {
             applySettings(data);
             resolve({ imported: [], applied: true });
           } else {

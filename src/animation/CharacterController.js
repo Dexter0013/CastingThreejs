@@ -62,6 +62,16 @@ export class CharacterController {
     this._poseWeight = 0; // 0 = idle clip, 1 = seated
     this._poseTime = 0;
     this._poseBlend = null; // seconds, overrides settings for one transition
+
+    /**
+     * Yaw of the rig's own forward in model space. Bind poses are not
+     * necessarily axis aligned, so `setFacing` subtracts this to make "0 faces
+     * +Z" true for the caller regardless of how the FBX was authored.
+     */
+    this._forwardYaw = 0;
+    /** 0..1 lunge envelope, decays on its own after `castLunge()`. */
+    this._lunge = 0;
+    this._rightAxis = new Vector3(1, 0, 0);
   }
 
   /**
@@ -117,6 +127,8 @@ export class CharacterController {
     // Bake the seated pose while the rig is still untouched by the mixer.
     this.sitting = new SittingPose(fbx);
     if (this.sitting.valid) this.forwardAxis.copy(this.sitting.forward);
+    this._forwardYaw = Math.atan2(this.forwardAxis.x, this.forwardAxis.z);
+    this._rightAxis.set(0, 1, 0).cross(this.forwardAxis).normalize();
 
     // The idle clip ships inside the same file.
     this.mixer = new AnimationMixer(fbx);
@@ -231,30 +243,64 @@ export class CharacterController {
   /* placement — driven by walk mode, inert otherwise                    */
   /* ------------------------------------------------------------------ */
 
-  /** Heading, radians about world +Y. 0 faces +Z. */
+  /** Heading, radians about world +Y. 0 faces +Z, whichever way the rig binds. */
   setFacing(yaw) {
-    this.root.rotation.y = yaw;
+    this.root.rotation.y = yaw - this._forwardYaw;
   }
 
   get facing() {
-    return this.root.rotation.y;
+    return this.root.rotation.y + this._forwardYaw;
   }
 
   /**
-   * Bank the body about its own forward axis. Positive angles roll the head to
-   * the rig's right, so leaning into a left-hand turn is a negative angle.
+   * Turn toward `yaw` over time rather than snapping.
+   * @param {number} rate fraction of the angle gap left after one second
    */
-  setLean(angle) {
-    this.tilt.quaternion.setFromAxisAngle(this.forwardAxis, angle);
+  turnToward(yaw, rate, dt) {
+    const current = this.facing;
+    // Shortest way round, so aiming across the -Z seam does not spin the body.
+    const delta = MathUtils.euclideanModulo(yaw - current + Math.PI, Math.PI * 2) - Math.PI;
+    this.setFacing(current + delta * (1 - Math.pow(MathUtils.clamp(rate, 1e-6, 1), dt)));
+  }
+
+  /**
+   * Punch the body forward, then let it settle.
+   *
+   * The rig only ships an idle clip, so the cast is sold procedurally: a pitch
+   * about the body's own right axis plus a shove back along its forward axis,
+   * both riding on one decaying envelope. Applied to `tilt` rather than `root`
+   * so it composes with the heading instead of fighting it.
+   */
+  castLunge() {
+    this._lunge = 1;
+  }
+
+  _applyLunge(dt) {
+    const c = settings.character;
+    if (this._lunge > 0) {
+      this._lunge = Math.max(0, this._lunge - c.castSettle * dt);
+    }
+    // A short overshoot at the front of the envelope reads as a snap rather than
+    // a slow bow.
+    const envelope = this._lunge * this._lunge * (1 + 0.35 * Math.sin(this._lunge * Math.PI));
+    this.tilt.quaternion.setFromAxisAngle(this._rightAxis, envelope * c.castLean);
+    this.tilt.position.copy(this.forwardAxis).multiplyScalar(-envelope * c.castRecoil);
   }
 
   /** Put the character back on the floor, upright and facing where it was. */
   resetPlacement() {
     this.root.position.y = 0;
-    this.setLean(0);
+    this._lunge = 0;
+    this.tilt.quaternion.identity();
+    this.tilt.position.set(0, 0, 0);
   }
 
   update(dt) {
+    // Driven by the *simulation* delta, and re-applied every frame even at
+    // dt = 0: pausing mid-cast holds the lunge, and `castLean` stays a live
+    // slider against that frozen pose.
+    this._applyLunge(dt);
+
     if (!this.mixer) return;
 
     // Editing the tuning sliders re-bakes the pose; cheap and rare.

@@ -12,10 +12,9 @@ import { ContactShadows } from '../world/ContactShadows.js';
 
 import { AssetLoader } from '../loaders/AssetLoader.js';
 import { CharacterController } from '../animation/CharacterController.js';
-import { WalkController } from '../animation/WalkController.js';
 
 import { InputManager } from '../input/InputManager.js';
-import { PathDrawer } from '../input/PathDrawer.js';
+import { AimController } from '../input/AimController.js';
 
 import { ParticleEngine } from '../particles/ParticleEngine.js';
 import { LightPool } from '../effects/LightPool.js';
@@ -30,16 +29,21 @@ import { PostProcessing } from '../postprocessing/PostProcessing.js';
 import { HUD, LoadingScreen } from '../ui/HUD.js';
 import { Editor } from '../ui/Editor.js';
 
-import { settings, ELEMENTS, MODES, MODE_META } from '../config/settings.js';
+import { settings, ELEMENTS } from '../config/settings.js';
 
 const HDR_URL = './hdri/spruit_sunrise.hdr';
 
 /**
  * Application root: owns every subsystem and the frame loop.
  *
- * The wiring is deliberately one-directional — App builds the systems, hands
- * each ability a context object of the shared services, and then does nothing
+ * The wiring is deliberately one-directional — App builds the systems, hands the
+ * ability manager a context object of the shared services, and then does nothing
  * but order the per-frame updates. No subsystem reaches back into App.
+ *
+ * The interaction is a single loop: arm the ability (Q), swing the ground arrow
+ * with the mouse, click to fire. `AimController` owns the targeting and emits
+ * one `cast` event; App turns that into an ability, a heading for the character
+ * and a cooldown.
  */
 export class App {
   constructor(canvas) {
@@ -48,6 +52,9 @@ export class App {
     this.elapsed = 0;
     this.paused = false;
     this._raf = 0;
+
+    /** Seconds left before the ability can be armed again. */
+    this.cooldown = 0;
 
     /* ---- core ---- */
     this.renderer = new Renderer(canvas);
@@ -89,20 +96,10 @@ export class App {
     this.character = new CharacterController(this.environment);
     this.scene.add(this.character.root);
 
-    // Walk mode: the same drawn path, ridden instead of cast.
-    this.walk = new WalkController(this.character, {
-      scene: this.scene,
-      particles: this.particles,
-      lights: this.lights,
-      decals: this.decals,
-      bursts: this.bursts,
-      shake: this.shake
-    });
-
-    /* ---- input ---- */
+    /* ---- input & targeting ---- */
     this.input = new InputManager(canvas);
-    this.pathDrawer = new PathDrawer(this.camera);
-    this.scene.add(this.pathDrawer.object3D);
+    this.aim = new AimController(this.camera);
+    this.scene.add(this.aim.object3D);
 
     /* ---- post ---- */
     this.post = new PostProcessing(this.renderer, this.scene, this.camera);
@@ -116,9 +113,8 @@ export class App {
     });
 
     this._bindEvents();
-    this._mode = null;
-    this.setMode(settings.mode);
-    this.selectElement(ELEMENTS[0]);
+    this.abilities.select(ELEMENTS[0]);
+    this.hud.setElement(ELEMENTS[0], { silent: true });
 
     this._focusPoint = new Vector3();
   }
@@ -132,34 +128,28 @@ export class App {
       this.dust.setPixelRatio(pixelRatio);
     });
 
-    this.input.on('draw:start', (pointer) => this.pathDrawer.begin(pointer));
-    this.input.on('draw:move', (pointer) => this.pathDrawer.move(pointer));
-    this.input.on('draw:end', () => this.pathDrawer.end());
-
-    this.input.on('element', (index) => this.selectElement(ELEMENTS[index]));
+    this.input.on('pointer:move', (pointer) => this.aim.point(pointer));
+    this.input.on('pointer:confirm', (pointer) => {
+      this.aim.point(pointer);
+      this.aim.confirm();
+    });
     this.input.on('action', (action) => this._handleAction(action));
 
-    // One gesture, two meanings — the mode decides what a finished stroke does.
-    this.pathDrawer.on('cast', (curve) => {
-      if (settings.mode === 'walk') {
-        if (!this.walk.begin(curve)) this.hud.showToast('Path too short to ride');
-      } else {
-        this.abilities.cast(curve);
-      }
-    });
+    this.aim.on('cast', (origin, direction, distance) => this._cast(origin, direction, distance));
+    this.aim.on('reject', () => this.hud.showToast('Too close — aim further out'));
 
-    this.hud.onSelect = (element) => this.selectElement(element);
-    this.hud.onMode = (mode) => this.setMode(mode);
+    this.hud.onAbility = () => this.armAbility();
   }
 
   _handleAction(action) {
-    const index = ELEMENTS.indexOf(this.abilities.selected);
     switch (action) {
-      case 'nextElement':
-        this.selectElement(ELEMENTS[(index + 1) % ELEMENTS.length]);
+      case 'ability':
+        // Pressing the key again puts an armed cast away, as it does in a MOBA.
+        if (this.aim.isArmed) this.aim.cancel();
+        else this.armAbility();
         break;
-      case 'prevElement':
-        this.selectElement(ELEMENTS[(index - 1 + ELEMENTS.length) % ELEMENTS.length]);
+      case 'cancel':
+        this.aim.cancel();
         break;
       case 'toggleHelp':
         this.hud.toggleHelp();
@@ -173,7 +163,8 @@ export class App {
         break;
       case 'togglePause':
         this.paused = !this.paused;
-        this.hud.showToast(this.paused ? 'Paused' : 'Resumed');
+        this.hud.setPaused(this.paused);
+        this.hud.showToast(this.paused ? 'Paused — the editor still applies' : 'Resumed');
         break;
       case 'togglePose': {
         const pose = this.character.togglePose();
@@ -181,41 +172,31 @@ export class App {
         this.hud.showToast(pose === 'sitting' ? 'Meditation pose' : 'Standing idle');
         break;
       }
-      case 'toggleMode':
-        this.setMode(MODES[(MODES.indexOf(settings.mode) + 1) % MODES.length]);
-        break;
       default:
         break;
     }
   }
 
-  selectElement(element) {
-    if (!element) return;
-    this.abilities.select(element);
-    this.hud.setElement(element);
+  /** Arm the ability, unless it is still cooling down. */
+  armAbility() {
+    if (this.cooldown > 0) {
+      this.hud.showToast('Not ready');
+      return;
+    }
+    this.aim.arm();
   }
 
-  /**
-   * Switch between casting and walking.
-   *
-   * `settings.mode` is the source of truth — the editor writes it directly and
-   * the frame loop notices — so this is also the sync point for presets and
-   * "reset to defaults".
-   */
-  setMode(mode) {
-    const next = MODES.includes(mode) ? mode : MODES[0];
-    const changed = this._mode !== next;
-    this._mode = next;
-    settings.mode = next;
+  _cast(origin, direction, distance) {
+    this.abilities.cast(origin, direction, distance);
+    this.cooldown = Math.max(0, settings.ice.cooldown);
 
-    if (next !== 'walk') this.walk.cancel();
-    this.hud.setMode(next);
-    if (changed) this.hud.showToast(`${MODE_META[next].hint} — ${MODE_META[next].blurb}`);
-    this.editor.refresh();
+    // Snap onto the shot and throw the body into it.
+    this.character.setFacing(this.aim.facing);
+    this.character.castLunge();
   }
 
   clearEffects() {
-    this.walk.cancel();
+    this.aim.cancel();
     this.abilities.clear();
     this.particles.reset();
     this.decals.clear();
@@ -223,7 +204,6 @@ export class App {
     this.lights.reset();
     this.shake.reset();
     this.flash.reset();
-    this.pathDrawer.trail.hide();
   }
 
   /* ------------------------------------------------------------------ */
@@ -283,19 +263,25 @@ export class App {
 
     /* ---- simulation ---- */
     this.renderer.syncSettings();
-    // The editor and the preset system write `settings.mode` directly.
-    if (settings.mode !== this._mode) this.setMode(settings.mode);
 
     this.environment.setFocus(this.character.position.x, this.character.position.z);
     this.environment.update();
-    // Walk mode places the character; the controller then animates him there.
-    this.walk.update(dt);
+
+    // Targeting runs on *real* time so the arrow keeps sweeping and animating
+    // while the sandbox is paused — pausing freezes the effects, not the UI.
+    this.aim.setOrigin(this.character.position);
+    this.aim.update(raw);
+
+    if (settings.character.turnToAim && this.aim.isArmed) {
+      this.character.turnToward(this.aim.facing, settings.character.turnRate, raw);
+    }
     this.character.update(dt);
+
+    this.cooldown = Math.max(0, this.cooldown - raw);
 
     this.ground.update(this.elapsed);
     this.dust.update(this.elapsed, this.character.position);
 
-    this.pathDrawer.update(raw); // the preview keeps animating while paused
     this.abilities.update(dt);
     this.particles.flush();
     this.decals.update(dt);
@@ -319,9 +305,13 @@ export class App {
     this.post.sync(this.elapsed, this.flash);
     this.post.render();
 
+    /* ---- readouts ---- */
+    this.hud.setCooldown(this.cooldown, Math.max(0.001, settings.ice.cooldown));
+    this.hud.setArmed(this.aim.isArmed);
     this.hud.update(raw, () => ({
       particles: this.particles.countLive(this.elapsed),
       calls: gl.info.render.calls,
+      spikes: this.abilities.active.reduce((total, ability) => total + ability.instanceCount, 0),
       abilities: this.abilities.active.length
     }));
   }
@@ -331,13 +321,12 @@ export class App {
   dispose() {
     this.stop();
     this.input.dispose();
-    this.pathDrawer.dispose();
+    this.aim.dispose();
     this.abilities.dispose();
     this.particles.dispose();
     this.decals.dispose();
     this.bursts.dispose();
     this.lights.dispose();
-    this.walk.dispose();
     this.character.dispose();
     this.ground.dispose();
     this.dust.dispose();

@@ -87,19 +87,19 @@ body {
   animation: sigil-pulse 1.8s ease-in-out infinite;
 }
 
-.sigil--fire {
-  background: #ff6a1a;
+.sigil--a {
+  background: #1d5f8f;
 }
-.sigil--water {
-  background: #31b6ff;
+.sigil--b {
+  background: #3fb4ff;
   animation-delay: 0.15s;
 }
-.sigil--earth {
-  background: #b98a4d;
+.sigil--c {
+  background: #9fe0ff;
   animation-delay: 0.3s;
 }
-.sigil--air {
-  background: #c9f0ff;
+.sigil--d {
+  background: #ecfbff;
   animation-delay: 0.45s;
 }
 
@@ -127,7 +127,7 @@ body {
   height: 100%;
   width: 0%;
   border-radius: 3px;
-  background: linear-gradient(90deg, #ff6a1a, #31b6ff, #c9f0ff);
+  background: linear-gradient(90deg, #1d5f8f, #3fb4ff, #ecfbff);
   transition: width 0.25s ease;
 }
 
@@ -151,7 +151,11 @@ body {
   font-size: 13px;
 }
 
-.hud__elements {
+/* ------------------------------------------------------------------ *
+ * Ability bar
+ * ------------------------------------------------------------------ */
+
+.hud__abilities {
   position: absolute;
   left: 50%;
   bottom: 26px;
@@ -161,72 +165,10 @@ body {
   pointer-events: auto;
 }
 
-/* The element picker is meaningless while walking — keep it visible but quiet. */
-.hud__elements.is-dimmed {
-  opacity: 0.32;
-  filter: saturate(0.35);
-}
-
-.hud__modes {
-  position: absolute;
-  left: 50%;
-  bottom: 118px;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px;
-  border-radius: 999px;
-  border: 1px solid var(--ui-border);
-  background: var(--ui-bg);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: var(--ui-shadow);
-  pointer-events: auto;
-}
-
-.mode-card {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 6px 16px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--ui-text-dim);
-  cursor: pointer;
-  user-select: none;
-  transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
-}
-
-.mode-card:hover {
-  color: var(--ui-text);
-}
-
-.mode-card.is-active {
-  color: #06131c;
-  background: var(--ui-accent);
-  box-shadow: 0 0 22px -6px var(--ui-accent);
-}
-
-.mode-card__glyph {
-  font-size: 13px;
-  line-height: 1;
-}
-
-.hud__modes-key {
-  padding: 0 10px 0 6px;
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  color: var(--ui-text-dim);
-}
-
-.element-card {
+.ability-card {
   position: relative;
-  width: 86px;
-  padding: 10px 8px 9px;
+  width: 96px;
+  padding: 12px 8px 10px;
   border-radius: var(--ui-radius);
   border: 1px solid var(--ui-border);
   background: var(--ui-bg);
@@ -235,56 +177,104 @@ body {
   box-shadow: var(--ui-shadow);
   text-align: center;
   cursor: pointer;
-  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  overflow: hidden;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease,
+    box-shadow 0.18s ease;
   user-select: none;
 }
 
-.element-card:hover {
+.ability-card:hover {
   transform: translateY(-3px);
   background: rgba(20, 28, 38, 0.7);
 }
 
-.element-card.is-active {
+.ability-card.is-active {
   border-color: var(--accent, var(--ui-accent));
   background: rgba(20, 28, 38, 0.82);
   box-shadow: 0 0 0 1px var(--accent, var(--ui-accent)) inset, 0 8px 28px rgba(0, 0, 0, 0.5),
     0 0 26px -6px var(--accent, var(--ui-accent));
 }
 
-.element-card__glyph {
-  font-size: 22px;
-  line-height: 1;
-  color: var(--accent, var(--ui-accent));
-  text-shadow: 0 0 14px var(--accent, var(--ui-accent));
+/* Armed: the slot pulses until the shot is taken or cancelled. */
+.hud__abilities.is-armed .ability-card.is-active {
+  animation: ability-armed 1.05s ease-in-out infinite;
 }
 
-/* Inline sigils: sized like the old text glyph, glow via filter instead. */
-.element-card__glyph .glyph-svg {
+@keyframes ability-armed {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px var(--accent, var(--ui-accent)) inset, 0 8px 28px rgba(0, 0, 0, 0.5),
+      0 0 22px -8px var(--accent, var(--ui-accent));
+  }
+  50% {
+    box-shadow: 0 0 0 2px var(--accent, var(--ui-accent)) inset, 0 8px 28px rgba(0, 0, 0, 0.5),
+      0 0 34px -2px var(--accent, var(--ui-accent));
+  }
+}
+
+/*
+ * Cooldown sweep. A conic gradient driven by one custom property, so the frame
+ * loop updates it with a single `setProperty` and never triggers layout.
+ */
+.ability-card__sweep {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(
+    from 0deg,
+    rgba(5, 9, 14, 0.8) calc(var(--cooldown, 0) * 360deg),
+    transparent 0
+  );
+  opacity: 0;
+  transition: opacity 0.12s linear;
+  pointer-events: none;
+}
+
+.ability-card.is-cooling .ability-card__sweep {
+  opacity: 1;
+}
+
+.ability-card.is-cooling .ability-card__glyph,
+.ability-card.is-cooling .ability-card__label {
+  opacity: 0.45;
+}
+
+.ability-card__glyph {
+  position: relative;
+  color: var(--accent, var(--ui-accent));
+}
+
+.ability-card__glyph .glyph-svg {
   display: block;
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   margin: 1px auto 0;
   filter: drop-shadow(0 0 6px var(--accent, var(--ui-accent)));
-  transition: filter 0.18s ease;
+  transition: filter 0.18s ease, opacity 0.18s ease;
 }
 
-.element-card.is-active .glyph-svg {
-  filter: drop-shadow(0 0 10px var(--accent, var(--ui-accent)));
+.ability-card.is-active .glyph-svg {
+  filter: drop-shadow(0 0 11px var(--accent, var(--ui-accent)));
 }
 
-.element-card__label {
-  margin-top: 6px;
+.ability-card__label {
+  position: relative;
+  margin-top: 7px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+  transition: opacity 0.18s ease;
 }
 
-.element-card__key {
+.ability-card__key {
   position: absolute;
   top: 6px;
-  right: 8px;
+  right: 9px;
+  z-index: 1;
   font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   color: var(--ui-text-dim);
 }
 
@@ -383,6 +373,39 @@ body {
   transform: translate(-50%, 0);
 }
 
+/* Standing reminder that the clock is stopped but the editor is not. */
+.hud__paused {
+  position: absolute;
+  left: 50%;
+  top: 26px;
+  transform: translate(-50%, -8px);
+  padding: 5px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(127, 214, 255, 0.4);
+  background: rgba(12, 22, 32, 0.86);
+  color: var(--ui-accent);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.hud__paused.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.hud__help-note {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--ui-border);
+  font-size: 11px;
+  color: var(--ui-accent);
+  opacity: 0.72;
+}
+
 /* ------------------------------------------------------------------ *
  * lil-gui theming
  * ------------------------------------------------------------------ */
@@ -423,13 +446,7 @@ body {
   .hud__stats {
     display: none;
   }
-  .element-card {
-    width: 68px;
-  }
-  .hud__modes {
-    bottom: 108px;
-  }
-  .mode-card {
-    padding: 6px 12px;
+  .ability-card {
+    width: 78px;
   }
 }
