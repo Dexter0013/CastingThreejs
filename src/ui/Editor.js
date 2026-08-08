@@ -36,6 +36,7 @@ export class Editor {
     this._buildIce();
     this._buildThunder();
     this._buildMeteor();
+    this._buildBeam();
     this._buildEnvironment();
     this._buildPost();
     this._buildCamera();
@@ -802,6 +803,224 @@ export class Editor {
     light.addColor(c, 'lightColor').name('light colour');
 
     this.meteorFolder = folder;
+  }
+
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Nova Beam.
+   *
+   * Every control here is read by a shader on the frame it changes, so the whole
+   * folder reshapes a beam that is already burning — pause with **P** halfway
+   * through the hold and the entire panel stays live. The ones worth reaching
+   * for first are `radius` and `flare` (how heavy the column reads), `charge`
+   * and `lifetime` (the wind-up and the hold, which are what make this ability
+   * different from the other three), `coils` / `coilTurns` (the ribbons around
+   * it) and `streak` / `flowSpeed` (how hard the energy streams downrange).
+   */
+  _buildBeam() {
+    const folder = this.gui.addFolder('✦  Nova Beam');
+    const c = settings.beam;
+    const R = Editor.range;
+
+    const cast = folder.addFolder('The cast');
+    R(cast, c, 'range', 2, 60, 0.1, 'max range');
+    R(cast, c, 'minRange', 0, 10, 0.1, 'min range');
+    R(cast, c, 'charge', 0, 3, 0.01, 'wind-up time');
+    R(cast, c, 'speed', 5, 400, 1, 'travel speed');
+    R(cast, c, 'lifetime', 0.05, 8, 0.01, 'burn time');
+    R(cast, c, 'fadeTime', 0.05, 4, 0.01, 'collapse time');
+    R(cast, c, 'cooldown', 0, 6, 0.05, 'cooldown');
+
+    const anchor = folder.addFolder('Where it leaves the hands');
+    R(anchor, c, 'handHeight', 0, 3, 0.01, 'hand height');
+    R(anchor, c, 'handForward', -1, 3, 0.01, 'hand forward');
+    R(anchor, c, 'handSide', -1.5, 1.5, 0.01, 'hand lateral');
+    R(anchor, c, 'endHeight', 0, 4, 0.01, 'height at target');
+
+    const column = folder.addFolder('The column');
+    R(column, c, 'radiusNear', 0.01, 3, 0.01, 'radius at hands');
+    R(column, c, 'radius', 0.02, 5, 0.01, 'radius at target');
+    R(column, c, 'radiusCurve', 0.1, 4, 0.01, 'radius curve');
+    R(column, c, 'flare', 0, 4, 0.01, 'flare at target');
+    R(column, c, 'flareWidth', 0.02, 1, 0.01, 'flare width');
+    R(column, c, 'throb', 0, 0.6, 0.005, 'pressure waves');
+    R(column, c, 'throbScale', 0, 12, 0.1, 'waves / length');
+    R(column, c, 'throbSpeed', 0, 10, 0.05, 'wave speed');
+    R(column, c, 'wander', 0, 1, 0.005, 'axis drift');
+    R(column, c, 'wanderScale', 0.1, 6, 0.05, 'drift scale');
+    R(column, c, 'wanderSpeed', 0, 5, 0.01, 'drift speed');
+
+    // The three tube passes. `coreSharp` and `shellRim` are the pair that decide
+    // whether the beam reads as a solid rod or as a lit pipe — see
+    // `materials/BeamMaterial.js`.
+    const layers = folder.addFolder('Core, sheath & halo');
+    R(layers, c, 'coreWidth', 0.05, 1.5, 0.01, 'core width');
+    R(layers, c, 'coreSharp', 0.1, 8, 0.05, 'core focus');
+    R(layers, c, 'coreFill', 0, 3, 0.01, 'core fill');
+    R(layers, c, 'shellWidth', 0.2, 3, 0.01, 'sheath width');
+    R(layers, c, 'shellRim', 0, 3, 0.01, 'sheath rim');
+    R(layers, c, 'shellFill', 0, 1.5, 0.01, 'sheath fill');
+    R(layers, c, 'shellOpacity', 0, 2, 0.01, 'sheath opacity');
+    R(layers, c, 'edgePower', 0.2, 8, 0.05, 'rim falloff');
+    R(layers, c, 'haloWidth', 0.5, 8, 0.05, 'halo width');
+    R(layers, c, 'haloRim', 0.5, 10, 0.05, 'halo falloff');
+    R(layers, c, 'haloOpacity', 0, 2, 0.01, 'halo opacity');
+
+    const surface = folder.addFolder('Surface & flow');
+    R(surface, c, 'ripple', 0, 1, 0.005, 'surface ripple');
+    R(surface, c, 'rippleBands', 0.1, 8, 0.05, 'ripples around');
+    R(surface, c, 'rippleScale', 0.1, 12, 0.05, 'ripples along');
+    R(surface, c, 'rippleSpeed', 0, 12, 0.05, 'ripple crawl');
+    R(surface, c, 'streak', 0, 3, 0.01, 'filaments');
+    R(surface, c, 'streakSharp', 0, 1, 0.01, 'filament sharpness');
+    R(surface, c, 'streakScale', 0.2, 20, 0.1, 'filaments / length');
+    R(surface, c, 'streakBands', 0.2, 10, 0.05, 'filaments around');
+    R(surface, c, 'streakGlow', 0, 4, 0.01, 'filament heat');
+    R(surface, c, 'flowSpeed', 0, 30, 0.1, 'flow speed');
+    R(surface, c, 'mouthGlow', 0, 6, 0.05, 'muzzle heat');
+    R(surface, c, 'mouthLength', 0.005, 0.5, 0.005, 'muzzle length');
+    R(surface, c, 'tipGlow', 0, 6, 0.05, 'burning-end heat');
+    R(surface, c, 'tipLength', 0.005, 0.5, 0.005, 'burning-end length');
+    R(surface, c, 'softFade', 0.02, 3, 0.01, 'soft intersection');
+
+    const material = folder.addFolder('Beam colour');
+    material.addColor(c, 'colorCore').name('axis');
+    material.addColor(c, 'colorInner').name('inner');
+    material.addColor(c, 'colorOuter').name('sheath');
+    material.addColor(c, 'colorHalo').name('halo');
+    R(material, c, 'glow', 0, 8, 0.01, 'glow');
+    R(material, c, 'opacity', 0, 2, 0.01, 'opacity');
+
+    const coils = folder.addFolder('The coils');
+    R(coils, c, 'coils', 0, 8, 1, 'ribbons');
+    R(coils, c, 'coilTurns', -8, 8, 0.05, 'turns over length');
+    R(coils, c, 'coilSpeed', -6, 6, 0.01, 'roll speed');
+    R(coils, c, 'coilRadius', 0.2, 4, 0.01, 'ride radius');
+    R(coils, c, 'coilFlare', 0, 4, 0.01, 'flare at target');
+    R(coils, c, 'coilWidth', 0.005, 0.6, 0.005, 'width at hands');
+    R(coils, c, 'coilWidthTip', 0.05, 6, 0.01, 'width at target');
+    R(coils, c, 'coilSharp', 0.2, 8, 0.05, 'edge falloff');
+    R(coils, c, 'coilPulse', 0, 1, 0.01, 'charge pulse');
+    R(coils, c, 'coilPulseFreq', 0, 12, 0.05, 'pulses / length');
+    R(coils, c, 'coilPulseSpeed', -8, 8, 0.05, 'pulse speed');
+    // Headroom above the shipped values on purpose — they sit high, and a
+    // control that starts pinned to its own maximum can only ever come down.
+    R(coils, c, 'coilGlow', 0, 14, 0.01, 'glow');
+    R(coils, c, 'coilOpacity', 0, 3, 0.01, 'opacity');
+    coils.addColor(c, 'colorCoil').name('ribbon core');
+    coils.addColor(c, 'colorCoilEdge').name('ribbon edge');
+
+    const rings = folder.addFolder('Shock discs');
+    R(rings, c, 'rings', 0, 12, 1, 'discs');
+    R(rings, c, 'ringSpeed', 0, 6, 0.01, 'trips / second');
+    R(rings, c, 'ringInner', 0.2, 4, 0.01, 'inner lip');
+    R(rings, c, 'ringOuter', 0.3, 6, 0.01, 'outer lip');
+    R(rings, c, 'ringSwell', 0, 3, 0.01, 'swell downrange');
+    R(rings, c, 'ringFade', 0, 1, 0.01, 'fade downrange');
+    R(rings, c, 'ringSharp', 0.2, 8, 0.05, 'band sharpness');
+    R(rings, c, 'ringGlow', 0, 8, 0.01, 'glow');
+    R(rings, c, 'ringOpacity', 0, 2, 0.01, 'opacity');
+    rings.addColor(c, 'colorRing').name('disc colour');
+
+    const orb = folder.addFolder('The charge');
+    R(orb, c, 'orbSize', 0.02, 2, 0.01, 'orb radius');
+    R(orb, c, 'orbThrob', 0, 0.6, 0.005, 'orb pulse');
+    R(orb, c, 'orbThrobSpeed', 0, 20, 0.1, 'pulse rate');
+    R(orb, c, 'orbTurbulence', 0, 1, 0.01, 'surface turbulence');
+    R(orb, c, 'orbScale', 0.2, 8, 0.05, 'surface scale');
+    R(orb, c, 'orbFlow', 0, 5, 0.01, 'surface crawl');
+    R(orb, c, 'orbBands', 0.5, 15, 0.1, 'filament scale');
+    R(orb, c, 'orbRim', 0.2, 6, 0.05, 'rim falloff');
+    R(orb, c, 'orbGlow', 0, 8, 0.01, 'glow');
+    R(orb, c, 'orbOpacity', 0, 2, 0.01, 'opacity');
+    R(orb, c, 'intakeRate', 0, 900, 1, 'intake rate');
+    R(orb, c, 'intakeRadius', 0.2, 8, 0.05, 'intake radius');
+    R(orb, c, 'intakeSpeed', 0.5, 25, 0.1, 'intake speed');
+    R(orb, c, 'chargeShake', 0, 0.5, 0.005, 'wind-up rumble');
+
+    const ground = folder.addFolder('What the floor does');
+    R(ground, c, 'scorchRate', 0.05, 8, 0.05, 'burns / metre');
+    R(ground, c, 'scorchRadius', 0.05, 4, 0.05, 'burn radius');
+    R(ground, c, 'scorchLife', 0.5, 20, 0.1, 'burn lifetime');
+    R(ground, c, 'scorchIntensity', 0, 2, 0.01, 'burn intensity');
+    R(ground, c, 'dustRate', 0, 20, 0.1, 'dust rings / sec');
+    R(ground, c, 'dustRadius', 0.2, 10, 0.05, 'dust ring radius');
+    R(ground, c, 'dustLife', 0.1, 5, 0.05, 'dust ring lifetime');
+    R(ground, c, 'shockRate', 0, 20, 0.1, 'shock rings / sec');
+    R(ground, c, 'shockRadius', 0.5, 25, 0.1, 'shockwave radius');
+    ground.addColor(c, 'colorScorch').name('scorch');
+    ground.addColor(c, 'colorEmber').name('ember');
+    ground.addColor(c, 'colorDustA').name('dust');
+    ground.addColor(c, 'colorDustB').name('dust crest');
+    ground.addColor(c, 'colorShockA').name('shockwave ring');
+    ground.addColor(c, 'colorShockB').name('shockwave crest');
+
+    const sparks = folder.addFolder('Sparks & motes');
+    R(sparks, c, 'sparkRate', 0, 1200, 1, 'spark rate');
+    R(sparks, c, 'sparkSize', 0.005, 0.8, 0.005, 'spark size');
+    R(sparks, c, 'sparkSpeed', 0, 40, 0.1, 'spark speed');
+    R(sparks, c, 'sparkLifetime', 0.05, 4, 0.01, 'spark lifetime');
+    R(sparks, c, 'sparkGravity', -50, 5, 0.1, 'spark gravity');
+    R(sparks, c, 'sparkStretch', 0, 3, 0.01, 'spark stretch');
+    R(sparks, c, 'sparkForward', 0, 4, 0.01, 'downrange drag');
+    R(sparks, c, 'moteRate', 0, 600, 1, 'mote rate');
+    R(sparks, c, 'moteSize', 0.005, 0.4, 0.005, 'mote size');
+    R(sparks, c, 'moteSpeed', 0, 12, 0.05, 'mote speed');
+    R(sparks, c, 'moteLifetime', 0.1, 8, 0.05, 'mote lifetime');
+    R(sparks, c, 'moteRise', -3, 8, 0.05, 'mote rise');
+    R(sparks, c, 'moteTurbulence', 0, 3, 0.01, 'mote turbulence');
+    Editor.gradient(sparks, c, 'colorSpark', 'Spark colour');
+    Editor.gradient(sparks, c, 'colorMote', 'Mote colour');
+
+    const dust = folder.addFolder('Steam & debris');
+    R(dust, c, 'smokeRate', 0, 500, 1, 'steam rate');
+    R(dust, c, 'smokeSize', 0.05, 4, 0.01, 'steam size');
+    R(dust, c, 'smokeSpeed', 0, 8, 0.05, 'steam speed');
+    R(dust, c, 'smokeLifetime', 0.2, 8, 0.05, 'steam lifetime');
+    R(dust, c, 'smokeOpacity', 0, 1, 0.005, 'steam opacity');
+    R(dust, c, 'smokeRise', -2, 4, 0.01, 'steam rise');
+    R(dust, c, 'debrisRate', 0, 300, 1, 'debris rate');
+    R(dust, c, 'debrisSize', 0.005, 0.4, 0.005, 'debris size');
+    R(dust, c, 'debrisSpeed', 0, 25, 0.1, 'debris speed');
+    R(dust, c, 'debrisLifetime', 0.1, 5, 0.05, 'debris lifetime');
+    R(dust, c, 'debrisGravity', -50, 0, 0.1, 'debris gravity');
+    Editor.gradient(dust, c, 'colorSmoke', 'Steam colour');
+    Editor.gradient(dust, c, 'colorDebris', 'Debris colour');
+
+    const impact = folder.addFolder('Release, impact & burn');
+    R(impact, c, 'muzzleSize', 0.05, 8, 0.05, 'release shell');
+    R(impact, c, 'muzzleIntensity', 0, 5, 0.01, 'release intensity');
+    R(impact, c, 'castFlash', 0, 2, 0.01, 'flash on release');
+    impact.addColor(c, 'colorCastFlash').name('release flash colour');
+    R(impact, c, 'burstSize', 0.2, 18, 0.05, 'impact shell');
+    R(impact, c, 'burstIntensity', 0, 5, 0.01, 'impact intensity');
+    R(impact, c, 'burstSparks', 0, 800, 1, 'impact sparks');
+    R(impact, c, 'burstDebris', 0, 400, 1, 'impact debris');
+    R(impact, c, 'pulseRate', 0, 12, 0.1, 'burn shells / sec');
+    R(impact, c, 'pulseSize', 0.1, 10, 0.05, 'burn shell size');
+    R(impact, c, 'pulseIntensity', 0, 5, 0.01, 'burn shell intensity');
+    R(impact, c, 'splashRate', 0, 900, 1, 'back-splash rate');
+    R(impact, c, 'impactShake', 0, 3, 0.01, 'shake');
+    R(impact, c, 'shakeDuration', 0.1, 4, 0.01, 'shake duration');
+    R(impact, c, 'impactFlash', 0, 2, 0.01, 'screen flash');
+    R(impact, c, 'rumble', 0, 0.5, 0.005, 'travel rumble');
+    R(impact, c, 'burnShake', 0, 0.5, 0.005, 'burn rumble');
+    impact.addColor(c, 'colorBurstA').name('impact shell');
+    impact.addColor(c, 'colorBurstB').name('impact body');
+    impact.addColor(c, 'colorBurstC').name('impact arcs');
+    impact.addColor(c, 'colorFlash').name('impact flash colour');
+
+    const light = folder.addFolder('Dynamic light');
+    R(light, c, 'lightIntensity', 0, 120, 0.5, 'beam intensity');
+    R(light, c, 'lightRadius', 0.5, 60, 0.1, 'beam radius');
+    R(light, c, 'lightPulse', 0, 1, 0.01, 'hum depth');
+    R(light, c, 'lightPulseSpeed', 0, 30, 0.1, 'hum rate');
+    R(light, c, 'muzzleLightIntensity', 0, 120, 0.5, 'hand intensity');
+    R(light, c, 'muzzleLightRadius', 0.5, 40, 0.1, 'hand radius');
+    light.addColor(c, 'lightColor').name('light colour');
+
+    this.beamFolder = folder;
   }
 
   /* ------------------------------------------------------------------ */

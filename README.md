@@ -2,7 +2,7 @@
 
 A linear-skillshot VFX sandbox built with **Three.js**, **Vite** and hand-written **GLSL**.
 
-Three abilities, all cast the same way: press the key to arm, a League-of-Legends style arrow
+Four abilities, all cast the same way: press the key to arm, a League-of-Legends style arrow
 appears on the ground and swings with the mouse, click to fire.
 
 **Q — Frost Lance.** A fracture front races out along the line while a field of ice crystals
@@ -19,17 +19,24 @@ burning gas and heating up the whole way: the lava seams splitting its surface p
 brighter as it comes in. It detonates on arrival, throws its own shattered chunks across the floor, and tears the
 ground open into a network of molten cracks that keep glowing while the crater burns out.
 
+**F — Nova Beam.** The caster winds a ball of light up in both hands, pulling motes in out of the
+air, then lets a column of it out along the line — white-hot core, cyan sheath, gold ribbons
+spiralling around it and shock discs racing down it. It *holds* there, burning into the floor and
+throwing spray back up the beam, before collapsing to a thread and blinking out. The only cast in
+the sandbox that is still happening a second after it landed.
+
 Everything you can see is generated. There are no textures, no sprite sheets and no meshes on
 disk except the character: the crystals are procedural geometry, the bolt is a strip of ribbon
 placed entirely by a vertex shader, the meteor is an icosphere cratered and sliced by fracture
-planes on the CPU, the arrow, the rime, the burns and the molten cracks are signed-distance and
-noise shaders, and the mist, sparks, chips and glitter are GPU particles.
+planes on the CPU, the beam is a parametric tube drawn three times at three radii, the arrow, the
+rime, the burns and the molten cracks are signed-distance and noise shaders, and the mist, sparks,
+chips and glitter are GPU particles.
 
-**Every parameter is a live slider** — 538 of them — and they stay live while the simulation is
-paused. That is the point of the project: freeze a frame mid-eruption or mid-strike with **P**,
-then reshape the silhouette, the palette and the timing against a still image.
+**Every parameter is a live slider** — 724 of them — and they stay live while the simulation is
+paused. That is the point of the project: freeze a frame mid-eruption, mid-strike or mid-burn with
+**P**, then reshape the silhouette, the palette and the timing against a still image.
 
-References for the look: `icecast.jpg` and `thundercast.jpg`.
+References for the look: `icecast.jpg`, `thundercast.jpg` and `superbeam.jpg`.
 
 ---
 
@@ -78,6 +85,8 @@ shown as a visible sky. The stage keeps its flat dark backdrop.
 | --- | --- |
 | **Q** (or **1**) | Arm Frost Lance — press again to put it away |
 | **E** (or **2**) | Arm Storm Lance — press again to put it away |
+| **R** (or **3**) | Arm Cinder Fall — press again to put it away |
+| **F** (or **4**) | Arm Nova Beam — press again to put it away |
 | **Move the mouse** | Swing the aim arrow |
 | **Left click** | Cast along the arrow |
 | **Esc** / **right click** | Cancel an armed cast |
@@ -101,16 +110,18 @@ too, so spending one slot never locks the other out.
 ```
 src/
   abilities/      Ability base class (linear skillshot), IceAbility, ThunderAbility,
-                  pooling manager
+                  MeteorAbility, BeamAbility, pooling manager
   animation/      FBX character loading, AnimationMixer, procedural meditation pose,
                   the procedural cast lunge
-  assets/         Procedural crystal geometry and the bolt ribbon strip
+  assets/         Procedural crystal and asteroid geometry, the bolt ribbon strip,
+                  the beam tube and its shock discs
   config/         settings.js — the single source of truth for every parameter
   core/           App, Renderer, CameraRig, Time, Layers, shared frame uniforms
-  effects/        Aim indicator, ground decals, bursts, light pool, shake, flash
+  effects/        Aim indicator, ground decals, fissures, bursts, light pool, shake, flash
   input/          InputManager (events) and AimController (targeting)
   loaders/        AssetLoader with a shared LoadingManager
-  materials/      IceMaterial, LightningMaterial
+  materials/      IceMaterial, LightningMaterial, MeteorMaterial,
+                  VolumetricFireMaterial, BeamMaterial
   particles/      GPU particle system + engine and rate emitters
   postprocessing/ Composer pipeline, grade shader, distortion shader
   shaders/lib/    Shared GLSL: noise library, common helpers
@@ -245,6 +256,46 @@ field on `atan(y, x)`, which hands every radius along a given bearing the same v
 dead-straight spokes out of the centre — a firework, not a burn. Sampling the same noise in the
 plane and warping the lookup is what lets the filaments meander and fork.
 
+### The beam
+
+The Nova Beam shares the bolt's rule — no dimensions on the CPU — and reaches the opposite look
+with it. Where the bolt's whole charm is that its noise is *piecewise-linear* and keeps its
+corners, every noise term in the beam is smooth, stretched hard along the flow and crawling
+downrange. A beam that kinks is a bolt.
+
+It is a real tube rather than a camera-facing ribbon, because a column this thick has to *have* a
+cross-section: the silhouette must bow correctly when you orbit it, the far wall must add through
+the near one, and the shock discs have to hug it. `createBeamTubeGeometry` is the ribbon strip one
+dimension richer — every vertex carries `(t, a)`, how far along the barrel it is and how far around
+— and `materials/BeamMaterial.js` turns that pair into a world position each frame.
+
+That one tube is drawn three times, and the trick is in how the three are weighted:
+
+- **halo** — widest, nothing but a rim term. The atmosphere the beam is shoving out of the way.
+- **sheath** — rim-weighted, so it reads as *hollow* and its silhouette edges are its brightest part.
+- **core** — narrow, and weighted the **opposite** way: brightest where the view ray runs down the
+  barrel and its path through the tube is longest.
+
+Rim-weighted outside, axis-weighted inside, both faces adding: that is a volume integral, cheaply,
+and the inversion is the entire reason the middle reads as a solid rod of light instead of as a lit
+pipe. Widen `coreWidth` or push `coreFill` up and the three layers collapse into one white tube —
+the cyan sheath and the gold coils are only legible because the core leaves them room.
+
+Two more instanced passes put structure on it. The **coils** are the bolt's ribbon strip bent into a
+helix, camera-facing and warm on purpose — the colour split is what stops them dissolving into the
+sheath. The **shock discs** are an instanced annulus whose phase is `fract(index / count + time ×
+speed)`, so the train is a pure function of the clock and there is no queue on the CPU. Both place
+themselves against the same `beamRadius()` the tube uses, which is why all five stay welded together
+when the profile is dragged.
+
+The beam is also the one ability with a **fourth beat**. The other three run travel → impact →
+fade; this one puts a wind-up in front of that, and it needed nothing from the base class:
+`advance()` simply refuses to let the front leave the hand until the orb is up to power, so `IMPACT`
+becomes the burn and the phase machine is untouched. The far end therefore has an impact that keeps
+happening — spray thrown back up the line, pressure shells shed off the burning point, dust and
+shockwave rings pushed across the floor, all rate-throttled through the same fractional-rate emitter
+the particles use so every rate is a live slider.
+
 ### Adding another ability
 
 1. Add a settings block in `config/settings.js` and an entry in `ELEMENTS` / `ELEMENT_META`.
@@ -277,6 +328,12 @@ ionised drift around the bolt), **smoke** (non-additive haze off the scorched fl
 (lit chips). Its sparks are emitted from several points along the bolt each frame rather than one:
 a beam sheds along its whole length, and a single origin makes every batch read as a starburst.
 
+Nova Beam uses four as well, and works one of them twice: its **motes** are the intake spiralling
+*into* the orb while it charges and the drift shed off the column once it is firing — the same glow,
+thrown the other way. Its **sparks** are thrown radially off the barrel and then dragged downrange
+by `sparkForward`, which is the read that says "pressure"; the bolt's fall instead, and that one
+difference does a lot of the work of keeping the two abilities apart.
+
 ### Render pipeline
 
 Per frame:
@@ -305,8 +362,8 @@ target, blurred twice and projected onto the ground.
 ## Editor and presets
 
 Press **G** for the panel. Folders: Presets, Global, Aim indicator, Frost Lance, Storm Lance,
-Environment, Post processing, Camera, Character. Every folder starts collapsed — there are enough
-controls here that one open section pushes the rest off the screen.
+Cinder Fall, Nova Beam, Environment, Post processing, Camera, Character. Every folder starts
+collapsed — there are enough controls here that one open section pushes the rest off the screen.
 
 - **Global** multipliers scale everything at once (speed, glow, noise, particles, lights, impact
   intensity, camera shake, time scale…).
@@ -318,14 +375,18 @@ controls here that one open section pushes the rest off the screen.
 - **Storm Lance** (123 controls, 34 of them colours) — the cast, where the bolt leaves the hand,
   the bundle, one filament, the ribbon, flicker and restrike, the bolt's colour, the burns on the
   ground, sparks/motes/smoke/debris, the muzzle and impact, and the dynamic light.
+- **Nova Beam** (176 controls) — the cast, where it leaves the hands, the column, the core/sheath/
+  halo stack, the surface and its flow, the beam's colour, the coils, the shock discs, the charge
+  and its intake, what the floor does, sparks/motes/steam/debris, release/impact/burn, and the two
+  dynamic lights.
 - **Presets** save to `localStorage`, and can be duplicated, deleted, exported to JSON, imported
   from JSON, or reset to the shipped defaults.
 
-Both abilities expose **every** colour they draw with, and none is derived from another: the
-crystal palette, the bolt palette, the ground marks, the impact shells, the shockwave rings, the
-screen flashes, and a four-stop lifetime gradient (`birth → early → late → death`) for each of the
-seven particle systems. Tinting the fog without touching the ice, or cooling the sparks to orange
-while the filaments stay blue, is a picker away.
+Every ability exposes **every** colour it draws with, and none is derived from another: the crystal
+palette, the bolt palette, the beam's four layers and its coils and discs, the ground marks, the
+impact shells, the shockwave rings, the screen flashes, and a four-stop lifetime gradient
+(`birth → early → late → death`) for each particle system. Tinting the fog without touching the ice,
+or cooling the sparks to orange while the filaments stay blue, is a picker away.
 
 Presets are plain snapshots of the settings tree, so an exported file is readable and editable by
 hand.
@@ -337,6 +398,10 @@ Knobs worth knowing about, because they reshape their ability the most:
 - `thunder.jitter` and `thunder.jitterScale` — how violently the bolt kinks, and how often.
   `thunder.strands` and `thunder.spread` set how wide the bundle reads, and `thunder.restrike`
   how hard it strobes. Those five carry the character of the effect.
+- `beam.radius` and `beam.flare` — how heavy the column reads and how hard it opens out where it
+  lands. `beam.charge` and `beam.lifetime` are the wind-up and the hold, which are what make this
+  ability feel unlike the other three, and `beam.coreWidth` / `beam.coreFill` decide whether the
+  layers stay separable or blow out to white.
 
 ---
 
@@ -347,6 +412,12 @@ Knobs worth knowing about, because they reshape their ability the most:
 - The whole crystal field is three draw calls regardless of crystal count; the cap is 288.
 - A whole bolt is **two** draw calls regardless of filament count; the cap is 24 filaments at 72
   samples each. Nothing about the path touches the CPU, so `strands` is nearly free.
+- A whole beam is **six** draw calls regardless of how many coils and discs are on it — three tube
+  passes over one shared geometry, plus one instanced draw each for the coils, the discs and the
+  charge orb. As with the bolt, none of the shape touches the CPU, so `coils` and `rings` are
+  nearly free. It takes two of the six dynamic lights (the column and the caster's hands), so four
+  concurrent beams would exhaust the pool; `LightPool.acquire()` returns null and every use of the
+  handle is guarded.
 - The six dynamic point lights are created at boot and parked at zero intensity rather than added
   and removed — changing the light count forces three to recompile every material.
 - Shadow maps update exactly once per frame even though the scene is rendered several times.
@@ -354,7 +425,8 @@ Knobs worth knowing about, because they reshape their ability the most:
 - Pixel ratio is capped at 1.75; the depth and distortion buffers are half resolution.
 
 Measured on a default cast: 32 draw calls idle, ~69 with a full ice field standing and ~49 with a
-bolt in the air, ~1150 live particles, 43 compiled programs once both abilities have been cast.
+bolt in the air, ~1150 live particles. All four abilities cast at once peaks at ~186 draw calls and
+five of the six dynamic lights.
 
 Live counters (FPS, live particles, instances, draw calls) are in the top-right of the HUD.
 

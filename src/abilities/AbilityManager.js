@@ -1,6 +1,7 @@
 import { IceAbility } from './IceAbility.js';
 import { ThunderAbility } from './ThunderAbility.js';
 import { MeteorAbility } from './MeteorAbility.js';
+import { BeamAbility } from './BeamAbility.js';
 import { ELEMENTS } from '../config/settings.js';
 import { ObjectPool } from '../utils/ObjectPool.js';
 
@@ -8,7 +9,8 @@ import { ObjectPool } from '../utils/ObjectPool.js';
 const ABILITY_TYPES = {
   ice: IceAbility,
   thunder: ThunderAbility,
-  meteor: MeteorAbility
+  meteor: MeteorAbility,
+  beam: BeamAbility
 };
 
 const MAX_CONCURRENT = 4;

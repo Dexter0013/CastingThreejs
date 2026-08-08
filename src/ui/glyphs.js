@@ -54,5 +54,21 @@ const METEOR = WRAP(`
   <path d="M30 70L10 90M40 34L18 22M22 48L4 44"/>
 `);
 
+/**
+ * Beam — a charge held in a bracket, firing a cone.
+ *
+ * The orb sits low-left where the other three sigils start their diagonal, two
+ * open brackets behind it read as the hands holding it, and three tapering rays
+ * open out to the upper right with a single wave threaded through them: the
+ * column, and the coil wrapped around it.
+ */
+const BEAM = WRAP(`
+  <circle cx="27" cy="66" r="11"/>
+  <path d="M13 55C7 62 7 74 13 81"/>
+  <path d="M40 79C47 73 47 61 40 55"/>
+  <path d="M41 57L92 20M42 66L94 50M43 75L92 80"/>
+  <path d="M46 63C56 49 64 71 74 57C82 46 88 52 93 46"/>
+`);
+
 /** Keyed by the ids in `ELEMENTS`. */
-export const ELEMENT_SIGILS = { ice: ICE, thunder: THUNDER, meteor: METEOR };
+export const ELEMENT_SIGILS = { ice: ICE, thunder: THUNDER, meteor: METEOR, beam: BEAM };

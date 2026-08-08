@@ -26,7 +26,7 @@ export class HUD {
     root.innerHTML = `
       <div class="hud__panel hud__title">
         Elemental Sandbox
-        <span data-blurb>Press Q, E or R, aim, click to cast.</span>
+        <span data-blurb>Press Q, E, R or F, aim, click to cast.</span>
       </div>
 
       <div class="hud__panel hud__stats">
@@ -37,7 +37,8 @@ export class HUD {
       </div>
 
       <div class="hud__panel hud__help">
-        <div><strong>Q</strong> — Frost Lance &nbsp; <strong>E</strong> — Storm Lance &nbsp; <strong>R</strong> — Cinder Fall</div>
+        <div><strong>Q</strong> — Frost Lance &nbsp; <strong>E</strong> — Storm Lance</div>
+        <div><strong>R</strong> — Cinder Fall &nbsp; <strong>F</strong> — Nova Beam</div>
         <div><strong>Move</strong> — swing the arrow &nbsp; <strong>Left click</strong> — cast</div>
         <div><strong>Esc / right click</strong> — cancel the cast</div>
         <div><strong>Right drag</strong> — orbit &nbsp; <strong>Scroll</strong> — zoom</div>
