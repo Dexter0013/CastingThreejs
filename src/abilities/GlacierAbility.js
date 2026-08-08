@@ -80,8 +80,7 @@ function angleDelta(a, b) {
  *
  * Four beats, though only three phases:
  *
- *   1. **travel** — the front runs out across the floor, laying rime and
- *      splitting the ground as it goes.
+ *   1. **travel** — the front runs out across the floor, laying rime as it goes.
  *   2. **bloom** — the first `snapTime` of the impact phase: the sheet freezes
  *      outward, and the ring erupts as a *sweep*. The blade nearest the caster
  *      goes first and the wave runs around both sides to meet at the far side,
@@ -221,7 +220,6 @@ export class GlacierAbility extends Ability {
     /** Bearing the front arrived on — where the sweep starts. */
     this._entryAngle = 0;
     this._frostDistance = 0;
-    this._crackDistance = 0;
 
     // Scratch state handed to the two shaders each frame. One object apiece,
     // reused — syncing a standing crown allocates nothing.
@@ -483,7 +481,6 @@ export class GlacierAbility extends Ability {
     this.ringEmitter.reset();
 
     this._frostDistance = 0;
-    this._crackDistance = 0;
     this._openTime = 0;
     // The one thing a cast captures, besides the timestamps below.
     this._seed = Math.random() * 100;
@@ -866,7 +863,7 @@ export class GlacierAbility extends Ability {
     this.lightBoost = c.lightIntensity * 0.5 * g.explosionIntensity;
   }
 
-  /** Rime, cracks and vapour laid under the front while it races out. */
+  /** Fog, glitter and rime laid under the front while it races out. */
   _frontFx(dt) {
     const c = settings.glacier;
     const g = settings.global;
@@ -929,25 +926,6 @@ export class GlacierAbility extends Ability {
         intensity: c.frostIntensity,
         colorA: getColor(c.colorFrost),
         colorB: getColor(c.colorFrostEdge)
-      });
-    }
-
-    /* --- and the floor splitting under it --- */
-    const crackStep = 1 / Math.max(0.05, c.trailCrackRate);
-    while (this.front - this._crackDistance >= crackStep) {
-      this._crackDistance += crackStep;
-      const s = saturate(this._crackDistance / this.length);
-      this.pointAt(s, _pos);
-      _pos.x += this.side.x * randRange(-0.5, 0.5);
-      _pos.z += this.side.z * randRange(-0.5, 0.5);
-
-      this.ctx.decals.spawn(DecalType.CRACK, _pos, {
-        radius: c.crackRadius * randRange(0.7, 1.3),
-        life: c.crackLife,
-        width: c.crackWidth,
-        intensity: c.crackIntensity,
-        colorA: getColor(c.colorCrack),
-        colorB: getColor(c.colorCrackGlow)
       });
     }
   }
@@ -1253,24 +1231,6 @@ export class GlacierAbility extends Ability {
       colorA: getColor(c.colorFrost),
       colorB: getColor(c.colorFrostEdge)
     });
-
-    /* the floor splitting under the boundary */
-    const cracks = 5;
-    for (let i = 0; i < cracks; i++) {
-      const a = (i / cracks + Math.random() * 0.12) * TAU;
-      const r = this.radius * randRange(0.55, 1.0);
-      this._centrePoint(_pos);
-      _pos.x += Math.cos(a) * r;
-      _pos.z += Math.sin(a) * r;
-      this.ctx.decals.spawn(DecalType.CRACK, _pos, {
-        radius: c.crackRadius * randRange(1.2, 2.0),
-        life: c.crackLife * 1.6,
-        width: c.crackWidth,
-        intensity: c.crackIntensity,
-        colorA: getColor(c.colorCrack),
-        colorB: getColor(c.colorCrackGlow)
-      });
-    }
 
     /* chips, fog and glitter blown out of the bloom */
     this._centrePoint(_pos).setY(0.4);

@@ -1598,13 +1598,6 @@ export const settings = {
     /* --- what the ground does --- */
     trailFrostRate: 2.2, // rime patches laid per metre of front travel
     trailFrostRadius: 1.0, // radius of one, metres
-    trailCrackRate: 0.7, // fractures split into the floor per metre
-    crackRadius: 1.3, // radius of one, metres
-    crackLife: 3.5, // seconds it stays open
-    crackWidth: 0.35, // how wide the seam reads
-    crackIntensity: 0.85,
-    colorCrack: '#123a4f', // the split itself
-    colorCrackGlow: '#8ef0ff', // the cold light in it while it is fresh
     frostSpread: 1.5, // the rime sheet under the crown, × zoneRadius
     frostLife: 7.5, // seconds a rime patch lingers
     frostIntensity: 0.85,

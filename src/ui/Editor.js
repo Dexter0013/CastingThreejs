@@ -1462,14 +1462,9 @@ export class Editor {
     veil.addColor(c, 'colorVeil').name('curtain');
     veil.addColor(c, 'colorVeilCrest').name('crest');
 
-    const ground = folder.addFolder('Rime & fractures');
+    const ground = folder.addFolder('Rime');
     R(ground, c, 'trailFrostRate', 0.05, 10, 0.05, 'trail rime / metre');
     R(ground, c, 'trailFrostRadius', 0.05, 6, 0.05, 'trail rime radius');
-    R(ground, c, 'trailCrackRate', 0.02, 6, 0.02, 'fractures / metre');
-    R(ground, c, 'crackRadius', 0.1, 8, 0.05, 'fracture radius');
-    R(ground, c, 'crackLife', 0.2, 12, 0.05, 'fracture lifetime');
-    R(ground, c, 'crackWidth', 0, 1, 0.01, 'fracture width');
-    R(ground, c, 'crackIntensity', 0, 3, 0.01, 'fracture intensity');
     R(ground, c, 'frostSpread', 0.2, 4, 0.05, 'impact rime, × footprint');
     R(ground, c, 'frostLife', 0.5, 20, 0.1, 'rime lifetime');
     R(ground, c, 'frostIntensity', 0, 2, 0.01, 'rime intensity');
@@ -1481,8 +1476,6 @@ export class Editor {
     R(ground, c, 'ringRate', 0, 12, 0.1, 'pressure rings / sec');
     ground.addColor(c, 'colorFrost').name('snow');
     ground.addColor(c, 'colorFrostEdge').name('snow shadow');
-    ground.addColor(c, 'colorCrack').name('fracture');
-    ground.addColor(c, 'colorCrackGlow').name('fracture glow');
     ground.addColor(c, 'colorShockA').name('shockwave ring');
     ground.addColor(c, 'colorShockB').name('shockwave crest');
 
