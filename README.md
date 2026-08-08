@@ -73,24 +73,30 @@ npm run preview
 
 ### Assets
 
-Five binary assets are served from `public/` and loaded automatically at boot:
+Six binary assets are served from `public/` and loaded automatically at boot:
 
 | File | Purpose |
 | --- | --- |
-| `public/models/Breathing Idle.fbx` | Rigged character **and** its idle animation clip |
-| `public/models/cast1.fbx` | Cast animation — the default for every ability |
+| `public/models/Idle.fbx` | Rigged character **and** its idle animation clip |
+| `public/models/diffuse.png` | The character's colour map |
+| `public/models/cast1.fbx` | Cast animation |
 | `public/models/cast2.fbx` | Cast animation |
-| `public/models/cast3.fbx` | Cast animation |
+| `public/models/cast3.fbx` | Cast animation — the default for Frost Lance, Root Snare and Glacier Crown |
 | `public/hdri/spruit_sunrise.hdr` | HDR probe used for image-based lighting and crystal reflections |
 
-All four FBX files are Mixamo exports of the same rig, textures embedded, each carrying a skinned
-mesh plus one animation stack. The character comes from the idle file; the cast files are loaded
-for their clip alone, and the duplicate rig that arrives with each one is released the moment its
-`AnimationClip` has been taken. Clips bind to the skeleton by bone name, which is the whole reason
-an animation authored in another file plays here without retargeting.
+All four FBX files are Mixamo exports of the same rig, each carrying a skinned mesh plus one
+animation stack. The character comes from the idle file; the cast files are loaded for their clip
+alone, and the duplicate rig that arrives with each one is released the moment its `AnimationClip`
+has been taken. Clips bind to the skeleton by bone name, which is the whole reason an animation
+authored in another file plays here without retargeting.
+
+The rig ships no material, so `diffuse.png` is loaded beside it and assigned as the colour map when
+the imported materials are converted to PBR — an FBX that *does* carry an embedded texture keeps its
+own, since that map is authored against its own UVs.
 
 Every ability picks the clip it throws — `castAnim` in its settings block, a dropdown under **The
-cast** in its editor folder, `cast1` for all six out of the box. The clip is a one-shot laid over
+cast** in its editor folder. Out of the box slots 1, 5 and 6 — Frost Lance, Root Snare and Glacier
+Crown — throw `cast3`, and the other three throw `cast1`. The clip is a one-shot laid over
 the looping idle, with `character.castBlendIn` / `castBlendOut` as the two edges of that overlap.
 
 The HDR is loaded as image-based lighting and as the reflection source for the ice — it is never

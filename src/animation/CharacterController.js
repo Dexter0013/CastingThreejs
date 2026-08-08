@@ -6,13 +6,16 @@ import {
   LoopRepeat,
   MathUtils,
   MeshStandardMaterial,
+  SRGBColorSpace,
   Vector3
 } from 'three';
 import { settings, CAST_ANIMATIONS } from '../config/settings.js';
 import { LAYER } from '../core/Layers.js';
 import { disposeObject } from '../utils/dispose.js';
 
-const CHARACTER_URL = './models/Breathing Idle.fbx';
+const CHARACTER_URL = './models/Idle.fbx';
+/** This export carries no material, so the skin ships beside it as a file. */
+const CHARACTER_TEXTURE_URL = './models/diffuse.png';
 /** One file per entry in `CAST_ANIMATIONS`; only their clips are kept. */
 const castUrl = (name) => `./models/${name}.fbx`;
 /** Mixamo exports in centimetres. */
@@ -75,8 +78,9 @@ export class CharacterController {
   async load(assets) {
     // The cast files are the same character again, so they cost a parse each
     // but nothing at run time — everything but the clip is thrown away below.
-    const [fbx, ...castFiles] = await Promise.all([
+    const [fbx, skin, ...castFiles] = await Promise.all([
       assets.loadFBX(CHARACTER_URL),
+      assets.loadTexture(CHARACTER_TEXTURE_URL),
       ...CAST_ANIMATIONS.map((name) => assets.loadFBX(castUrl(name)))
     ]);
     // The FBX resolves before its textures do; material prep inspects them.
@@ -101,7 +105,7 @@ export class CharacterController {
     fbx.position.z -= center.z;
     fbx.position.y -= box.min.y;
 
-    this._prepareMaterials(fbx);
+    this._prepareMaterials(fbx, skin);
     this._measureFacing(fbx);
 
     this.tilt.add(fbx);
@@ -161,9 +165,17 @@ export class CharacterController {
     disposeObject(file);
   }
 
-  /** Convert imported materials to PBR and hook them into the shadow system. */
-  _prepareMaterials(root) {
+  /**
+   * Convert imported materials to PBR and hook them into the shadow system.
+   *
+   * @param {import('three').Object3D} root
+   * @param {import('three').Texture} skin the character's colour map
+   */
+  _prepareMaterials(root, skin) {
     const converted = new Map();
+
+    // TextureLoader assumes linear data; this one is authored colour.
+    skin.colorSpace = SRGBColorSpace;
 
     root.traverse((node) => {
       if (!node.isMesh && !node.isSkinnedMesh) return;
@@ -180,14 +192,18 @@ export class CharacterController {
         if (converted.has(material)) return converted.get(material);
 
         // FBX gives us Phong/Lambert; move to Standard so IBL and CSM apply.
-        // The maps come straight out of the file — this rig carries its textures
-        // embedded, so the loader hands them over as blobs and there is nothing
-        // to substitute. Exporters disagree on which slot the normal map lands
-        // in, so both are passed through and the empty one costs nothing.
+        // This export ships no texture of its own, so the skin loaded alongside
+        // it is the colour map — but a file that *does* carry one embedded still
+        // wins, since that map is authored against its own UVs. Exporters
+        // disagree on which slot the normal map lands in, so both are passed
+        // through and the empty one costs nothing.
+        //
+        // The tint is dropped with the map: an untextured FBX defaults to a flat
+        // grey that would otherwise darken every texel of the skin.
         const standard = new MeshStandardMaterial({
           name: material.name,
-          color: material.color ?? 0xffffff,
-          map: material.map ?? null,
+          color: material.map ? (material.color ?? 0xffffff) : 0xffffff,
+          map: material.map ?? skin,
           normalMap: material.normalMap ?? null,
           bumpMap: material.normalMap ? null : (material.bumpMap ?? null),
           roughness: 0.85,

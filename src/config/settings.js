@@ -243,7 +243,7 @@ export const settings = {
     speed: 26.0, // how fast the fracture front travels, metres/second
     lifetime: 3.6, // seconds the field stands before it withdraws
     cooldown: 0.4, // seconds before the ability can be armed again
-    castAnim: 'cast1', // which clip in `CAST_ANIMATIONS` the body throws
+    castAnim: 'cast3', // which clip in `CAST_ANIMATIONS` the body throws
 
     /* --- the footprint the spikes fill --- */
     widthNear: 0.55, // half-width of the band at the caster, metres
@@ -1160,7 +1160,7 @@ export const settings = {
     lifetime: 2.6, // seconds the snare stands
     fadeTime: 0.75, // seconds it takes to collapse
     cooldown: 1.4,
-    castAnim: 'cast1', // which clip in `CAST_ANIMATIONS` the body throws
+    castAnim: 'cast3', // which clip in `CAST_ANIMATIONS` the body throws
 
     /* --- the leash that plants it --- */
     // Thrown from a hand, so these are measured from the caster's origin in the
@@ -1432,7 +1432,7 @@ export const settings = {
     shatterStagger: 0.45, // seconds of random delay between neighbours
     sinkTime: 1.15, // seconds one shard takes to crumble and withdraw
     cooldown: 1.6,
-    castAnim: 'cast1', // which clip in `CAST_ANIMATIONS` the body throws
+    castAnim: 'cast3', // which clip in `CAST_ANIMATIONS` the body throws
 
     /* --- where the front leaves the caster --- */
     // Thrown from a hand, so these are measured from the caster's origin in the
