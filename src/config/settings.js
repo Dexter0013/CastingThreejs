@@ -1176,43 +1176,43 @@ export const settings = {
     leashCling: 0.12, // how far above the floor the tip runs, metres
 
     /* --- the column --- */
-    strands: 8, // filaments in the pillar
-    height: 6.2, // how high it reaches, metres
-    heightCurve: 0.85, // <1 gets it up fast, >1 makes it climb late
-    throat: 0.07, // radius where it leaves the floor, × zoneRadius
-    columnSpread: 0.17, // radius at the top, × zoneRadius
-    columnCurve: 1.35, // >1 keeps the throat tight then opens it late
-    columnFlare: 0.12, // extra opening over the last quarter, × zoneRadius
-    columnTwist: 0.55, // turns a filament makes over the climb
-    columnSpin: 0.4, // turns/second the whole pillar rolls
-    columnKink: 0.24, // kink amplitude, metres
-    columnWidth: 1.6, // × the shared filament width
-    columnTaper: 0.55, // how much thinner the top is than the base
+    strands: 15, // filaments in the pillar
+    height: 9.2, // how high it reaches, metres
+    heightCurve: 1.45, // <1 gets it up fast, >1 makes it climb late
+    throat: 0.16, // radius where it leaves the floor, × zoneRadius
+    columnSpread: 0.25, // radius at the top, × zoneRadius
+    columnCurve: 2.88, // >1 keeps the throat tight then opens it late
+    columnFlare: 0.585, // extra opening over the last quarter, × zoneRadius
+    columnTwist: 0.22, // turns a filament makes over the climb
+    columnSpin: 1.26, // turns/second the whole pillar rolls
+    columnKink: 0.27, // kink amplitude, metres
+    columnWidth: 1.86, // × the shared filament width
+    columnTaper: 1.09, // how much thinner the top is than the base
 
     /* --- the tendrils crawling out to the boundary --- */
-    tendrils: 12, // separate ground filaments (capped with the rest at 56)
-    tendrilInner: 0.06, // where they leave the column, × zoneRadius
-    tendrilReach: 1.0, // where they end, × zoneRadius (1 = exactly on the band)
-    tendrilCurve: 0.8, // <1 throws them outward early
-    tendrilWander: 0.9, // radians a tendril veers over its run
-    tendrilArch: 0.22, // metres it hops off the floor mid-span
-    tendrilHug: 0.05, // how far above the floor it runs, metres
-    tendrilSpin: 0.05, // turns/second the whole fan rotates
-    tendrilKink: 0.18, // kink amplitude, metres
+    tendrils: 20, // separate ground filaments (capped with the rest at 56)
+    tendrilInner: 0.0, // where they leave the column, × zoneRadius
+    tendrilReach: 1.07, // where they end, × zoneRadius (1 = exactly on the band)
+    tendrilCurve: 1.18, // <1 throws them outward early
+    tendrilWander: 1.41, // radians a tendril veers over its run
+    tendrilArch: 1.16, // metres it hops off the floor mid-span
+    tendrilHug: 0.005, // how far above the floor it runs, metres
+    tendrilSpin: -0.225, // turns/second the whole fan rotates
+    tendrilKink: 0.72, // kink amplitude, metres
     tendrilWidth: 0.75, // × the shared filament width
     tendrilDim: 0.8, // how much dimmer than the column
 
     /* --- the arcs running around the rim --- */
-    rimArcs: 7, // arcs on the boundary at once
-    rimSpan: 0.19, // fraction of the circle one arc covers
-    rimSpeed: 0.28, // revolutions/second they travel
+    rimArcs: 14, // arcs on the boundary at once
+    rimSpan: 0.335, // fraction of the circle one arc covers
+    rimSpeed: -1.84, // revolutions/second they travel
     // High enough to clear the burnt band underneath them: an arc that hops
     // 0.3 m over a band this bright is simply invisible.
-    rimHeight: 0.55, // metres they hop at mid-span
-    rimJitter: 0.16, // radial wobble, × zoneRadius
-    rimKink: 0.12, // kink amplitude, metres
+    rimHeight: 0.98, // metres they hop at mid-span
+    rimJitter: 0.23, // radial wobble, × zoneRadius
+    rimKink: 0.15, // kink amplitude, metres
     rimWidth: 0.85, // × the shared filament width
-    rimDim: 0.9,
+    rimDim: 1.0,
 
     /* --- the shape every filament shares --- */
     // The same piecewise-linear value noise the bolt uses — linear on purpose,
@@ -1256,12 +1256,12 @@ export const settings = {
      * its radius when it spawns — this one has to re-scale under `zoneRadius`
      * while it is standing.
      */
-    fieldBoundary: 0.4, // thickness of the burnt band, metres
-    fieldBoundaryGlow: 2.6,
-    fieldFill: 0.3, // the wash inside it
-    fieldFalloff: 1.7, // how hard that wash crowds to the rim
-    fieldVeins: 1.0, // filaments burnt across the disc
-    fieldVeinScale: 1.5, // veins per metre
+    fieldBoundary: 0.02, // thickness of the burnt band, metres
+    fieldBoundaryGlow: 2.9,
+    fieldFill: 0.65, // the wash inside it
+    fieldFalloff: 3.6, // how hard that wash crowds to the rim
+    fieldVeins: 2.98, // filaments burnt across the disc
+    fieldVeinScale: 2.0, // veins per metre
     fieldVeinSharp: 0.72, // 0 = a wash, 1 = hard threads
     fieldWarp: 0.55, // domain warp — what stops the veins reading as spokes
     fieldCrawl: 0.5, // how fast they writhe
@@ -1272,8 +1272,8 @@ export const settings = {
     fieldSpin: 0.05, // revolutions/second the ticks step around
     fieldCore: 1.3, // brightness of the pool the column stands in
     fieldCoreSize: 0.22, // its radius, × zoneRadius
-    fieldPulse: 0.3, // brightness breathing
-    fieldPulseSpeed: 3.4,
+    fieldPulse: 0.0, // brightness breathing
+    fieldPulseSpeed: 3.95,
     fieldOpacity: 1.0,
     fieldHeight: 0.03, // hover distance above the floor, metres
     colorField: '#8f6bff', // the wash and the veins
