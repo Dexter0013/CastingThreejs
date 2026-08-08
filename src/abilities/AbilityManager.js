@@ -2,6 +2,8 @@ import { IceAbility } from './IceAbility.js';
 import { ThunderAbility } from './ThunderAbility.js';
 import { MeteorAbility } from './MeteorAbility.js';
 import { BeamAbility } from './BeamAbility.js';
+import { SnareAbility } from './SnareAbility.js';
+import { GlacierAbility } from './GlacierAbility.js';
 import { ELEMENTS } from '../config/settings.js';
 import { ObjectPool } from '../utils/ObjectPool.js';
 
@@ -10,7 +12,9 @@ const ABILITY_TYPES = {
   ice: IceAbility,
   thunder: ThunderAbility,
   meteor: MeteorAbility,
-  beam: BeamAbility
+  beam: BeamAbility,
+  snare: SnareAbility,
+  glacier: GlacierAbility
 };
 
 const MAX_CONCURRENT = 4;
@@ -56,6 +60,9 @@ export class AbilityManager {
 
   /**
    * Cast the selected ability along a line.
+   *
+   * A far cast takes the same three arguments and simply works from the far end
+   * of that line — which is why adding zone targeting needed nothing here.
    *
    * @param {THREE.Vector3} origin     on the floor
    * @param {THREE.Vector3} direction  unit, flat

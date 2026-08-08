@@ -1,9 +1,12 @@
 # Elemental Sandbox
 
-A linear-skillshot VFX sandbox built with **Three.js**, **Vite** and hand-written **GLSL**.
+A skillshot VFX sandbox built with **Three.js**, **Vite** and hand-written **GLSL**.
 
-Four abilities, all cast the same way: press the key to arm, a League-of-Legends style arrow
-appears on the ground and swings with the mouse, click to fire.
+Five abilities and two ways to aim them. Four are **line casts**: press the key to arm, a
+League-of-Legends style arrow appears on the ground and swings with the mouse, click to fire. The
+fifth is a **far cast**: the arrow is replaced by a circle with a deliberately thick boundary that
+follows the cursor and answers the only question a ground-targeted AoE has to answer before you
+commit — how much space is this going to take.
 
 **Q — Frost Lance.** A fracture front races out along the line while a field of ice crystals
 tears up out of the floor behind it — small and dense at your feet, opening into a wall of blades
@@ -25,18 +28,26 @@ spiralling around it and shock discs racing down it. It *holds* there, burning i
 throwing spray back up the beam, before collapsing to a thread and blinking out. The only cast in
 the sandbox that is still happening a second after it landed.
 
+**V — Voltaic Snare.** The far cast. A leash of current is whipped out across the floor, and where
+it lands the ring snaps open past its own radius and pulls back onto it: a violet column tears up
+out of the middle, tendrils crawl outward to the boundary, arcs run around the rim and the whole
+disc burns. It holds there re-striking and hauling the air up into the pillar, then collapses to a
+thread. The circle you measured out before the click is exactly the circle you get.
+
 Everything you can see is generated. There are no textures, no sprite sheets and no meshes on
 disk except the character: the crystals are procedural geometry, the bolt is a strip of ribbon
 placed entirely by a vertex shader, the meteor is an icosphere cratered and sliced by fracture
-planes on the CPU, the beam is a parametric tube drawn three times at three radii, the arrow, the
-rime, the burns and the molten cracks are signed-distance and noise shaders, and the mist, sparks,
-chips and glitter are GPU particles.
+planes on the CPU, the beam is a parametric tube drawn three times at three radii, the snare's
+whole cage is that same ribbon strip threaded along four different parametric paths, the arrow, the
+targeting circle, the rime, the burns and the molten cracks are signed-distance and noise shaders,
+and the mist, sparks, chips and glitter are GPU particles.
 
-**Every parameter is a live slider** — 724 of them — and they stay live while the simulation is
+**Every parameter is a live slider** — 938 of them — and they stay live while the simulation is
 paused. That is the point of the project: freeze a frame mid-eruption, mid-strike or mid-burn with
 **P**, then reshape the silhouette, the palette and the timing against a still image.
 
-References for the look: `icecast.jpg`, `thundercast.jpg` and `superbeam.jpg`.
+References for the look: `icecast.jpg`, `thundercast.jpg`, `superbeam.jpg` and
+`electricalboost.jpg`.
 
 ---
 
@@ -87,8 +98,9 @@ shown as a visible sky. The stage keeps its flat dark backdrop.
 | **E** (or **2**) | Arm Storm Lance — press again to put it away |
 | **R** (or **3**) | Arm Cinder Fall — press again to put it away |
 | **F** (or **4**) | Arm Nova Beam — press again to put it away |
-| **Move the mouse** | Swing the aim arrow |
-| **Left click** | Cast along the arrow |
+| **V** (or **5**) | Arm Voltaic Snare — the far cast, aimed with a circle |
+| **Move the mouse** | Swing the aim arrow, or move the far-cast circle |
+| **Left click** | Cast along the arrow, or drop the circle where it is |
 | **Esc** / **right click** | Cancel an armed cast |
 | **Right mouse + drag** | Orbit the camera |
 | **Scroll** | Zoom |
@@ -98,10 +110,11 @@ shown as a visible sky. The stage keeps its flat dark backdrop.
 | **T** | Toggle the character between the standing idle and the meditation sit |
 | **H** | Hide the controls panel |
 
-`range` and `minRange` are per ability, so the arrow's reach changes with the slot you have
-selected. Aiming closer than the selected ability's `minRange` tints the arrow red and refuses the
-cast; set `minRange` to 0 if you would rather cast at your own feet. Cooldowns are per ability
-too, so spending one slot never locks the other out.
+`range` and `minRange` are per ability, so the indicator's reach changes with the slot you have
+selected. Aiming closer than the selected ability's `minRange` tints it red and refuses the cast;
+set `minRange` to 0 if you would rather cast at your own feet, which is what the Snare ships with —
+a trap you cannot drop on yourself is missing half its uses. Cooldowns are per ability too, so
+spending one slot never locks the other out.
 
 ---
 
@@ -109,19 +122,20 @@ too, so spending one slot never locks the other out.
 
 ```
 src/
-  abilities/      Ability base class (linear skillshot), IceAbility, ThunderAbility,
-                  MeteorAbility, BeamAbility, pooling manager
+  abilities/      Ability base class (the travelling front), IceAbility, ThunderAbility,
+                  MeteorAbility, BeamAbility, SnareAbility, pooling manager
   animation/      FBX character loading, AnimationMixer, procedural meditation pose,
                   the procedural cast lunge
   assets/         Procedural crystal and asteroid geometry, the bolt ribbon strip,
                   the beam tube and its shock discs
   config/         settings.js — the single source of truth for every parameter
   core/           App, Renderer, CameraRig, Time, Layers, shared frame uniforms
-  effects/        Aim indicator, ground decals, fissures, bursts, light pool, shake, flash
-  input/          InputManager (events) and AimController (targeting)
+  effects/        Aim arrow, far-cast circle, ground decals, fissures, bursts,
+                  light pool, shake, flash
+  input/          InputManager (events) and AimController (both targeting shapes)
   loaders/        AssetLoader with a shared LoadingManager
   materials/      IceMaterial, LightningMaterial, MeteorMaterial,
-                  VolumetricFireMaterial, BeamMaterial
+                  VolumetricFireMaterial, BeamMaterial, SnareMaterial
   particles/      GPU particle system + engine and rate emitters
   postprocessing/ Composer pipeline, grade shader, distortion shader
   shaders/lib/    Shared GLSL: noise library, common helpers
@@ -153,7 +167,8 @@ settings.global.timeScale = 0.1;  // slow the whole cast to a crawl
 Ability blocks are keyed by their id in `ELEMENTS`, and the shared systems that need to know
 "which ability is the player holding" — the aim controller, the cooldowns, the HUD — look it up as
 `settings[element]`. The four fields they rely on being present are `range`, `minRange`, `speed`
-and `cooldown`. Everything else in a block is that ability's own business.
+and `cooldown`; a far cast adds a fifth, `zoneRadius`. Everything else in a block is that ability's
+own business.
 
 ### The rule that makes "edit while paused" work
 
@@ -175,13 +190,42 @@ hash changes, which is what keeps them live sliders rather than restart-required
 ### Aiming
 
 `AimController` raycasts the pointer onto the ground plane **every frame**, not only on mouse
-move, so orbiting the camera with a cast armed swings the arrow under a stationary cursor. It
-clamps the distance into `[ice.minRange, ice.range]`, tracks a 0..1 reveal envelope, and emits a
-single `cast` event carrying an origin, a unit direction and a distance — which is exactly the
-signature `Ability#spawn` takes. It decides nothing about what the cast does.
+move, so orbiting the camera with a cast armed swings the indicator under a stationary cursor. It
+clamps the distance into `[minRange, range]`, tracks a 0..1 reveal envelope, and emits a single
+`cast` event carrying an origin, a unit direction and a distance — which is exactly the signature
+`Ability#spawn` takes. It decides nothing about what the cast does.
 
 It runs on **real** time rather than the scaled simulation delta, so the indicator keeps animating
 while the sandbox is paused.
+
+There are two indicators and one controller. Which one is drawn comes from
+`ELEMENT_META[element].cast` — `CastShape.LINE` or `CastShape.ZONE` — and that is the *only* thing
+the two shapes disagree about. Arming, clamping, validating, revealing and firing are shared, and
+both end in the same three-argument `cast` event, because from the targeting side a far cast is a
+line cast you only care about the far end of. That is why zone targeting needed no change in
+`Ability`, `AbilityManager` or `App`: `SnareAbility` reads its centre as `pointAt(1)` and works
+outward from there.
+
+### The far-cast circle
+
+`ZoneIndicator` is the arrow's opposite number, and it is built out of the same two ideas: metres,
+and no textures.
+
+The **footprint** is one quad whose fragment shader remaps UV into metres from the target, so the
+boundary stays 0.34 m thick whether the circle is 2 m or 8 m across. The band is deliberately the
+heaviest mark on screen — it is the whole message — and it is split about the nominal radius by
+`boundaryBias` rather than centred on it, so its *outer* lip stays honest about where the effect
+ends. Inside there is a rim-weighted wash, contour rings travelling outward, warped filaments and a
+reticle whose downrange arm is longer, because the quad carries the caster's yaw and that arm is
+therefore the heading.
+
+The **reach ring** at the caster is the bolt's ribbon strip bent into a circle: `(t, side)` in,
+world position out. A quad big enough to hold a 20 m range would be 40 m across and shade a
+screenful of discarded fragments for one thin line.
+
+The circle **snaps out past its radius and settles back** when the cast is armed, and the trap does
+the same thing when it lands. A circle that grows linearly reads as a UI element; one that
+overshoots reads as something the caster did.
 
 ### The arrow is one SDF
 
@@ -296,6 +340,42 @@ happening — spray thrown back up the line, pressure shells shed off the burnin
 shockwave rings pushed across the floor, all rate-throttled through the same fractional-rate emitter
 the particles use so every rate is a live slider.
 
+### The snare
+
+The Voltaic Snare is the first ability built around a *point* instead of a line, and the thing that
+holds it together is that `zoneRadius` is read in exactly one place per consumer and nowhere is it
+copied: the indicator measures it out, the tendrils end on it, the rim arcs run along it, the field
+burns it and the column's throat and flare are fractions of it. Drag it and all five move together,
+mid-cast, with the clock stopped.
+
+The whole cage — the whip that plants it, the pillar, the tendrils and the rim arcs — is **one
+instanced ribbon strip**, the same one the bolt and the beam's coils are drawn on. A filament's
+*role* is decided in the vertex shader by testing its instance index against four live counts, and
+the role picks which parametric path it is threaded along:
+
+- **leash** — a sagging line from the hand to the travelling tip, dropped onto the floor.
+- **column** — a twisting climb whose radius opens from `throat` to `columnSpread`.
+- **tendril** — a meander running outward, its veer a per-filament constant rather than noise, so
+  it curves the way a discharge that has committed to a direction does.
+- **rim** — an arc travelling around the boundary, hopping over it at mid-span.
+
+Every offset then lives in a frame taken by finite difference off that path, which is what lets one
+kink function serve a vertical pillar and a filament crawling flat across the floor. The two
+ground-hugging roles damp the vertical component of that offset and clamp above the floor — a kink
+with a free `y` buries half of every tendril and the effect reads as a broken dotted line. Setting
+a count to zero retires the role outright, which is how the leash disappears on the frame the ring
+takes over. Two draw calls cover all four roles, however many filaments are in the air.
+
+The **field** is a quad rather than a pooled decal for one reason: a decal captures its radius when
+it spawns, and this circle has to re-scale under `zoneRadius` while it is standing. Its veins are
+sampled in the plane and domain warped — the same lesson the bolt's ground burns taught, and for
+the same reason.
+
+The one thing worth stealing for the next far cast is the **snap**: the ring opens on
+`Easing.outCubic` multiplied by a bump that peaks late and dies at exactly 1, so it overshoots its
+radius and pulls back onto it, and the pillar climbs on the same clock 1.7× slower. The ground goes
+first, then the air breaks down over it.
+
 ### Adding another ability
 
 1. Add a settings block in `config/settings.js` and an entry in `ELEMENTS` / `ELEMENT_META`.
@@ -305,6 +385,11 @@ the particles use so every rate is a live slider.
 4. Add an editor folder in `ui/Editor.js`, and a sigil in `ui/glyphs.js`.
 5. Bind a key in `input/InputManager.js` — it emits `ability` with the 0-based slot index, which
    `App` maps through `ELEMENTS`.
+
+To make it a **far cast** instead of a line cast, add two things and nothing else: `cast:
+CastShape.ZONE` in its `ELEMENT_META` entry, and a `zoneRadius` in its settings block. The circle
+indicator, the reach ring, the snap-out and the whole targeting loop come for free, and the ability
+reads its centre as `pointAt(1)`.
 
 Everything else — pooling, the travelling front, the local frame, lights, phases, per-ability
 cooldowns, the aim reach and camera framing — is inherited or driven off `ELEMENTS`. The HUD
@@ -361,14 +446,18 @@ target, blurred twice and projected onto the ground.
 
 ## Editor and presets
 
-Press **G** for the panel. Folders: Presets, Global, Aim indicator, Frost Lance, Storm Lance,
-Cinder Fall, Nova Beam, Environment, Post processing, Camera, Character. Every folder starts
-collapsed — there are enough controls here that one open section pushes the rest off the screen.
+Press **G** for the panel. Folders: Presets, Global, Aim indicator, Far-cast circle, Frost Lance,
+Storm Lance, Cinder Fall, Nova Beam, Voltaic Snare, Environment, Post processing, Camera,
+Character. Every folder starts collapsed — there are enough controls here that one open section
+pushes the rest off the screen.
 
 - **Global** multipliers scale everything at once (speed, glow, noise, particles, lights, impact
   intensity, camera shake, time scale…).
 - **Aim indicator** — the arrow's silhouette in metres, its outline and fill, the chevrons and
   frost, and the rings and rosette.
+- **Far-cast circle** (40 controls) — the boundary band, the interior, the ticks, sweep and
+  reticle, the reach ring, and the snap-out. Shared by every far cast, so it is filed with the
+  targeting rather than with any one ability.
 - **Frost Lance** (113 controls, 25 of them colours) — the cast, the footprint, the silhouette,
   the crystal itself, the eruption timing, the ice material, the frost on the ground,
   mist/chips/glitter, the impact and the dynamic light.
@@ -379,6 +468,10 @@ collapsed — there are enough controls here that one open section pushes the re
   halo stack, the surface and its flow, the beam's colour, the coils, the shock discs, the charge
   and its intake, what the floor does, sparks/motes/steam/debris, release/impact/burn, and the two
   dynamic lights.
+- **Voltaic Snare** (174 controls, 33 of them colours) — the cast and its footprint, the leash, the
+  column, the tendrils, the rim arcs, the shared filament shape and flicker, the ribbon and its
+  colour, the field on the floor, the burns, sparks/updraft/smoke/debris, throw/snap/hold, and the
+  dynamic light.
 - **Presets** save to `localStorage`, and can be duplicated, deleted, exported to JSON, imported
   from JSON, or reset to the shipped defaults.
 
@@ -402,6 +495,13 @@ Knobs worth knowing about, because they reshape their ability the most:
   lands. `beam.charge` and `beam.lifetime` are the wind-up and the hold, which are what make this
   ability feel unlike the other three, and `beam.coreWidth` / `beam.coreFill` decide whether the
   layers stay separable or blow out to white.
+- `snare.zoneRadius` — the one number the whole far cast is built on. It resizes the targeting
+  circle, the tendrils, the rim arcs, the burnt field and the pillar's throat together, live.
+  After that, `snare.snapTime` and `snare.height` carry the moment it opens, and `snare.tendrils` /
+  `snare.rimArcs` / `snare.strands` decide how much of that footprint is actually lit.
+- `zone.boundary` and `zone.snap` — how thick the far-cast circle's edge reads, and how hard it
+  overshoots on the way out. Between them they decide whether the indicator feels like a UI overlay
+  or like something the caster is doing.
 
 ---
 
@@ -412,6 +512,10 @@ Knobs worth knowing about, because they reshape their ability the most:
 - The whole crystal field is three draw calls regardless of crystal count; the cap is 288.
 - A whole bolt is **two** draw calls regardless of filament count; the cap is 24 filaments at 72
   samples each. Nothing about the path touches the CPU, so `strands` is nearly free.
+- A whole snare — leash, pillar, tendrils and rim arcs — is **two** draw calls plus one for the
+  field, regardless of how many filaments are in it; the cap is 56 across the four roles. As with
+  the bolt, none of the shape touches the CPU, so raising `tendrils` or `rimArcs` is nearly free.
+  Its targeting circle is two more: one quad and one ring strip.
 - A whole beam is **six** draw calls regardless of how many coils and discs are on it — three tube
   passes over one shared geometry, plus one instanced draw each for the coils, the discs and the
   charge orb. As with the bolt, none of the shape touches the CPU, so `coils` and `rings` are
@@ -425,8 +529,10 @@ Knobs worth knowing about, because they reshape their ability the most:
 - Pixel ratio is capped at 1.75; the depth and distortion buffers are half resolution.
 
 Measured on a default cast: 32 draw calls idle, ~69 with a full ice field standing and ~49 with a
-bolt in the air, ~1150 live particles. All four abilities cast at once peaks at ~186 draw calls and
-five of the six dynamic lights.
+bolt in the air, ~1150 live particles. A snare standing with its cage, field and rim burns is ~45
+draw calls and ~480 live particles, and arming its circle costs two. Four concurrent casts —
+the pool's ceiling, whichever slots they came from — peaks at ~186 draw calls and five of the six
+dynamic lights.
 
 Live counters (FPS, live particles, instances, draw calls) are in the top-right of the HUD.
 
@@ -455,6 +561,12 @@ piece of it.
 - The distortion pass runs with nothing writing to it. It costs a half-res clear per frame.
 - The impact cluster is placed radially around the end point, so at very short cast distances it
   can overlap the band behind it more than it should.
+- The far cast inherits the flat-floor assumption twice over: the circle is drawn on a single quad
+  at `y = 0`, and the snare's tendrils and rim arcs are placed against that same plane. Neither
+  would drape over a step.
+- Both the targeting circle and the snare's field are additive, so the footprint brightens the
+  floor rather than shading it. On a pale floor the boundary would need a non-additive pass under
+  it to stay readable.
 
 ---
 

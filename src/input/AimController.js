@@ -1,22 +1,30 @@
-import { Raycaster, Plane, Vector2, Vector3, MathUtils } from 'three';
-import { settings, ELEMENTS } from '../config/settings.js';
+import { Group, Raycaster, Plane, Vector2, Vector3, MathUtils } from 'three';
+import { settings, ELEMENTS, CastShape, castShapeOf } from '../config/settings.js';
 import { EventEmitter } from '../utils/EventEmitter.js';
 import { AimIndicator } from '../effects/AimIndicator.js';
+import { ZoneIndicator } from '../effects/ZoneIndicator.js';
 
 const GROUND_PLANE = new Plane(new Vector3(0, 1, 0), 0);
 
 /**
- * Targeting for a linear skillshot, in the shape players already know from
- * MOBAs: press the ability key to *arm* it, move the mouse to swing the arrow,
- * click to fire, right-click or Escape to put it away.
+ * Targeting, in the two shapes players already know from MOBAs.
  *
- * The controller owns the aim state and the indicator; it decides nothing about
- * what the cast does. It emits one event, `cast`, with an origin, a unit
+ * A **line cast** arms an arrow that swings about the caster and fires along
+ * its length; a **far cast** arms a circle that follows the cursor and drops
+ * where it is clicked. Which one an ability uses is declared in
+ * `ELEMENT_META[...].cast`, and the controller swaps indicators on selection —
+ * everything else about arming, clamping, validating and firing is shared,
+ * because from the targeting side the only difference is what gets drawn.
+ *
+ * The controller owns the aim state and both indicators; it decides nothing
+ * about what the cast does. It emits one event, `cast`, with an origin, a unit
  * direction and a distance — which is exactly the signature the ability's
- * `spawn` takes.
+ * `spawn` takes. A far cast reads its target point off the far end of that
+ * line, so the ability contract never had to change.
  *
  * The pointer is re-projected every frame rather than only on move, so orbiting
- * the camera with the cast armed swings the arrow under a stationary cursor.
+ * the camera with the cast armed swings the indicator under a stationary
+ * cursor.
  *
  * Emits: `cast` (origin, direction, distance), `arm`, `cancel`, `reject`.
  */
@@ -28,6 +36,11 @@ export class AimController extends EventEmitter {
     this.raycaster.far = 500;
 
     this.indicator = new AimIndicator();
+    this.zone = new ZoneIndicator();
+
+    this.group = new Group();
+    this.group.name = 'AimIndicators';
+    this.group.add(this.indicator.object3D, this.zone.object3D);
 
     /**
      * Which ability the arrow is measuring for. `range` and `minRange` are
@@ -56,7 +69,7 @@ export class AimController extends EventEmitter {
   }
 
   get object3D() {
-    return this.indicator.object3D;
+    return this.group;
   }
 
   /** Live settings block of the ability being aimed. */
@@ -64,7 +77,17 @@ export class AimController extends EventEmitter {
     return settings[this.element] ?? settings[ELEMENTS[0]];
   }
 
-  /** Point the arrow at a different ability's reach. */
+  /** Whether the ability in the slot is aimed with the arrow or the circle. */
+  get shape() {
+    return castShapeOf(this.element);
+  }
+
+  /** Footprint of a far cast, metres. Zero for a line cast. */
+  get zoneRadius() {
+    return Math.max(0.05, this.config.zoneRadius ?? 1);
+  }
+
+  /** Point the indicator at a different ability's reach. */
   setElement(element) {
     if (!settings[element]) return;
     this.element = element;
@@ -159,7 +182,8 @@ export class AimController extends EventEmitter {
   update(dt) {
     this._resolve();
 
-    const revealTime = Math.max(0.01, settings.aim.reveal);
+    const zoned = this.shape === CastShape.ZONE;
+    const revealTime = Math.max(0.01, zoned ? settings.zone.reveal : settings.aim.reveal);
     const target = this.armed ? 1 : 0;
     const step = dt / revealTime;
     this.reveal = MathUtils.clamp(
@@ -169,14 +193,30 @@ export class AimController extends EventEmitter {
     );
 
     const visible = this.reveal > 0.001;
-    this.indicator.setVisible(visible);
-    if (visible) {
+    // Only ever one of the two is on screen, and swapping the slot mid-reveal
+    // hides the other outright rather than leaving it fading in place.
+    this.indicator.setVisible(visible && !zoned);
+    this.zone.setVisible(visible && zoned);
+
+    if (!visible) return;
+    if (zoned) {
+      this.zone.update(
+        this.origin,
+        this.yaw,
+        this.distance,
+        this.zoneRadius,
+        this.config.range,
+        this.reveal,
+        this.valid
+      );
+    } else {
       this.indicator.update(this.origin, this.yaw, this.distance, this.reveal, this.valid);
     }
   }
 
   dispose() {
     this.indicator.dispose();
+    this.zone.dispose();
     this.clear();
   }
 }

@@ -70,5 +70,47 @@ const BEAM = WRAP(`
   <path d="M46 63C56 49 64 71 74 57C82 46 88 52 93 46"/>
 `);
 
+/**
+ * Snare — a ring with a bolt standing in it.
+ *
+ * The only sigil in the set built around a *circle you look into* rather than a
+ * diagonal, because that is the one thing this slot has to say before anything
+ * else: it is not a skillshot, it is a footprint. The ellipse is the boundary
+ * seen in perspective, four arcs step around it where the rim current runs, and
+ * the zigzag rises out of the middle.
+ */
+const SNARE = WRAP(`
+  <ellipse cx="50" cy="70" rx="38" ry="15"/>
+  <path d="M12 70L4 70M88 70L96 70M31 82L27 89M69 82L73 89"/>
+  <path d="M56 18L38 46H50L44 68"/>
+  <path d="M50 55L62 40H52L58 26"/>
+`);
+
+/**
+ * Glacier — a crown of blades standing on a ring.
+ *
+ * The second sigil built around a *circle you look into*, because it is the
+ * second far cast and that is the first thing the slot has to say. Where the
+ * Snare stands one bolt in the middle of its ellipse, this one stands the ring
+ * itself up: five blades of uneven height rising off the boundary with the
+ * spire tallest in the middle, which is the silhouette the ability actually
+ * makes.
+ */
+const GLACIER = WRAP(`
+  <ellipse cx="50" cy="74" rx="38" ry="13"/>
+  <path d="M9 70L13 41L21 66"/>
+  <path d="M24 65L30 31L37 60"/>
+  <path d="M42 61L50 15L58 61"/>
+  <path d="M63 60L70 31L76 65"/>
+  <path d="M79 66L87 41L91 70"/>
+`);
+
 /** Keyed by the ids in `ELEMENTS`. */
-export const ELEMENT_SIGILS = { ice: ICE, thunder: THUNDER, meteor: METEOR, beam: BEAM };
+export const ELEMENT_SIGILS = {
+  ice: ICE,
+  thunder: THUNDER,
+  meteor: METEOR,
+  beam: BEAM,
+  snare: SNARE,
+  glacier: GLACIER
+};
