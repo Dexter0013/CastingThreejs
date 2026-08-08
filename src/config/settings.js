@@ -286,10 +286,10 @@ export const settings = {
     sinkTime: 1.0, // seconds to withdraw into the floor
 
     /* --- the ice material --- */
-    colorDeep: '#12496f', // the colour thick ice accumulates toward
-    colorIce: '#a9e4ff', // body
+    colorDeep: '#3e737a', // the colour thick ice accumulates toward
+    colorIce: '#8adaff', // body
     colorRim: '#f2feff', // fresnel edge
-    colorCore: '#57c9ff', // the light trapped inside a fresh crystal
+    colorCore: '#638797', // the light trapped inside a fresh crystal
     opacity: 0.92,
     depthTint: 1.15, // how fast the deep tint builds with thickness
     fresnel: 2.3,
