@@ -410,7 +410,7 @@ export const settings = {
     lifetime: 0.45, // seconds the bolt holds after it lands
     fadeTime: 0.5, // seconds it takes to blow out
     cooldown: 0.5,
-    castAnim: 'cast1', // which clip in `CAST_ANIMATIONS` the body throws
+    castAnim: 'cast2', // which clip in `CAST_ANIMATIONS` the body throws
 
     /* --- where the bolt leaves the caster --- */
     // The beam starts at the hand, not at the feet, so these are measured from
@@ -822,7 +822,7 @@ export const settings = {
     lightFlickerSpeed: 13,
 
     /* --- the launch and the detonation --- */
-    muzzleSize: 0.7, // the flare at the hand as the rock leaves it
+    muzzleSize: 0.0, // the flare at the hand as the rock leaves it — 0 = none
     muzzleIntensity: 1.6,
     castFlash: 0.08, // screen flash on release
     colorCastFlash: '#ff9a2e',
@@ -1160,7 +1160,7 @@ export const settings = {
     lifetime: 2.6, // seconds the snare stands
     fadeTime: 0.75, // seconds it takes to collapse
     cooldown: 1.4,
-    castAnim: 'cast3', // which clip in `CAST_ANIMATIONS` the body throws
+    castAnim: 'cast2', // which clip in `CAST_ANIMATIONS` the body throws
 
     /* --- the leash that plants it --- */
     // Thrown from a hand, so these are measured from the caster's origin in the

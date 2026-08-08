@@ -863,7 +863,7 @@ export class Editor {
     ground.addColor(c, 'colorShockB').name('shockwave crest');
 
     const impact = folder.addFolder('Launch & detonation');
-    R(impact, c, 'muzzleSize', 0.05, 6, 0.05, 'launch flare');
+    R(impact, c, 'muzzleSize', 0, 6, 0.05, 'launch flare'); // 0 = no flare
     R(impact, c, 'muzzleIntensity', 0, 5, 0.01, 'launch intensity');
     R(impact, c, 'castFlash', 0, 2, 0.01, 'flash on release');
     impact.addColor(c, 'colorCastFlash').name('release flash colour');

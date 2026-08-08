@@ -727,18 +727,24 @@ export class MeteorAbility extends Ability {
 
     this._launchPoint(_pos);
 
-    this.ctx.bursts.spawn(BurstMode.FIRE, _pos, {
-      radius: c.muzzleSize * 0.25,
-      endRadius: c.muzzleSize * g.explosionIntensity,
-      life: 0.4,
-      intensity: c.muzzleIntensity,
-      opacity: 0.85,
-      fresnel: 1.2,
-      displace: 0.45,
-      colorA: getColor(c.colorHot),
-      colorB: getColor(c.colorFlameMid),
-      colorC: getColor(c.colorFlameEdge)
-    });
+    // Off by default: an expanding shell this close to the camera-facing side of
+    // the body reads as a ball stuck to the caster rather than as a flare, and
+    // the sparks below plus the screen flash already sell the release. Dial
+    // `muzzleSize` up if you want it back.
+    if (c.muzzleSize > 0) {
+      this.ctx.bursts.spawn(BurstMode.FIRE, _pos, {
+        radius: c.muzzleSize * 0.25,
+        endRadius: c.muzzleSize * g.explosionIntensity,
+        life: 0.4,
+        intensity: c.muzzleIntensity,
+        opacity: 0.85,
+        fresnel: 1.2,
+        displace: 0.45,
+        colorA: getColor(c.colorHot),
+        colorB: getColor(c.colorFlameMid),
+        colorC: getColor(c.colorFlameEdge)
+      });
+    }
 
     _emit.position = _pos;
     _emit.radius = 0.22;
