@@ -1,5 +1,5 @@
 import GUI from 'lil-gui';
-import { settings } from '../config/settings.js';
+import { settings, CAST_ANIMATIONS } from '../config/settings.js';
 import { PresetManager } from './PresetManager.js';
 
 /**
@@ -57,6 +57,17 @@ export class Editor {
 
   static range(folder, object, key, min, max, step, label) {
     return folder.add(object, key, min, max, step).name(label ?? key);
+  }
+
+  /**
+   * Which clip the body throws when this ability fires.
+   *
+   * One per ability, because the gesture is part of how a spell reads — the
+   * beam and the snare should not be cast the same way. `App` reads the value
+   * at the moment of the cast, so switching it applies to the very next click.
+   */
+  static castAnimation(folder, object) {
+    return folder.add(object, 'castAnim', CAST_ANIMATIONS).name('cast animation');
   }
 
   /**
@@ -370,6 +381,7 @@ export class Editor {
     R(cast, c, 'speed', 2, 80, 0.5, 'front speed');
     R(cast, c, 'lifetime', 0.2, 12, 0.1, 'field lifetime');
     R(cast, c, 'cooldown', 0, 6, 0.05, 'cooldown');
+    Editor.castAnimation(cast, c);
 
     const field = folder.addFolder('Footprint');
     R(field, c, 'widthNear', 0.05, 6, 0.01, 'width at caster');
@@ -515,6 +527,7 @@ export class Editor {
     R(cast, c, 'lifetime', 0.05, 6, 0.01, 'bolt lifetime');
     R(cast, c, 'fadeTime', 0.05, 4, 0.01, 'blow-out time');
     R(cast, c, 'cooldown', 0, 6, 0.05, 'cooldown');
+    Editor.castAnimation(cast, c);
 
     const anchor = folder.addFolder('Where it leaves the hand');
     R(anchor, c, 'handHeight', 0, 3, 0.01, 'hand height');
@@ -671,6 +684,7 @@ export class Editor {
     R(cast, c, 'lifetime', 0.2, 10, 0.1, 'crater lifetime');
     R(cast, c, 'fadeTime', 0.1, 6, 0.05, 'clear-out time');
     R(cast, c, 'cooldown', 0, 6, 0.05, 'cooldown');
+    Editor.castAnimation(cast, c);
 
     const path = folder.addFolder('The flight path');
     R(path, c, 'handHeight', 0, 3, 0.01, 'hand height');
@@ -902,6 +916,7 @@ export class Editor {
     R(cast, c, 'lifetime', 0.05, 8, 0.01, 'burn time');
     R(cast, c, 'fadeTime', 0.05, 4, 0.01, 'collapse time');
     R(cast, c, 'cooldown', 0, 6, 0.05, 'cooldown');
+    Editor.castAnimation(cast, c);
 
     const anchor = folder.addFolder('Where it leaves the hands');
     R(anchor, c, 'handHeight', 0, 3, 0.01, 'hand height');
@@ -1120,6 +1135,7 @@ export class Editor {
     R(cast, c, 'lifetime', 0.1, 12, 0.05, 'hold time');
     R(cast, c, 'fadeTime', 0.05, 4, 0.01, 'collapse time');
     R(cast, c, 'cooldown', 0, 8, 0.05, 'cooldown');
+    Editor.castAnimation(cast, c);
 
     const leash = folder.addFolder('The leash');
     R(leash, c, 'handHeight', 0, 3, 0.01, 'hand height');
@@ -1330,6 +1346,7 @@ export class Editor {
     R(cast, c, 'shatterStagger', 0, 3, 0.01, 'break stagger');
     R(cast, c, 'sinkTime', 0.05, 5, 0.01, 'crumble time');
     R(cast, c, 'cooldown', 0, 8, 0.05, 'cooldown');
+    Editor.castAnimation(cast, c);
 
     const hand = folder.addFolder('Where the front leaves the hand');
     R(hand, c, 'handHeight', 0, 3, 0.01, 'hand height');
@@ -1633,27 +1650,25 @@ export class Editor {
     const c = settings.character;
     const R = Editor.range;
 
-    // The controller polls `pose` every frame, so the dropdown needs no handler.
-    folder.add(c, 'pose', ['idle', 'sitting']).name('pose (T)');
-    R(folder, c, 'blendTime', 0.05, 3, 0.01, 'blend time');
-    R(folder, settings.global, 'animationSpeed', 0.1, 3, 0.01, 'idle speed');
+    // The mixer's own rate, so it scales the idle and the cast clips together.
+    // The same value as Global → animation speed, mirrored here where it is
+    // actually reached for; `listen` keeps the two readouts honest.
+    R(folder, settings.global, 'animationSpeed', 0.1, 3, 0.01, 'playback rate').listen();
 
+    // Which clip each ability throws lives in that ability's own folder, under
+    // "The cast"; these are the edges of the blend that lays it over the idle.
     const cast = folder.addFolder('Casting');
+    R(cast, c, 'castBlendIn', 0.01, 1, 0.01, 'blend into cast');
+    R(cast, c, 'castBlendOut', 0.01, 1.5, 0.01, 'blend back to idle');
     cast.add(c, 'turnToAim').name('turn to aim');
     R(cast, c, 'turnRate', 0.000001, 0.02, 0.000001, 'turn follow');
-    R(cast, c, 'castLean', 0, 1.2, 0.01, 'lunge lean');
-    R(cast, c, 'castRecoil', 0, 0.8, 0.005, 'lunge recoil');
-    R(cast, c, 'castSettle', 0.2, 8, 0.05, 'lunge settle');
 
-    // Everything below re-bakes the seated pose when it changes.
-    const seated = folder.addFolder('Meditation pose');
-    R(seated, c, 'breathing', 0, 3, 0.01, 'breathing');
-    R(seated, c, 'breathRate', 0.05, 1, 0.01, 'breaths / sec');
-    R(seated, c, 'legSpread', 0.6, 1.4, 0.01, 'leg spread');
-    R(seated, c, 'torsoLean', -20, 20, 0.5, 'torso lean');
-    R(seated, c, 'seatClearance', 0, 0.08, 0.002, 'seat clearance');
-    R(seated, c, 'handHeight', 0, 0.25, 0.005, 'hand height');
-    seated.add(c, 'handsOnKnees').name('hands on knees');
+    // The procedural accent that rides on top of the clip. Zero both leans to
+    // let the animation carry the cast on its own.
+    const lunge = folder.addFolder('Lunge');
+    R(lunge, c, 'castLean', 0, 1.2, 0.01, 'lunge lean');
+    R(lunge, c, 'castRecoil', 0, 0.8, 0.005, 'lunge recoil');
+    R(lunge, c, 'castSettle', 0.2, 8, 0.05, 'lunge settle');
   }
 
   dispose() {

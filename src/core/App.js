@@ -179,12 +179,6 @@ export class App {
         this.hud.setPaused(this.paused);
         this.hud.showToast(this.paused ? 'Paused — the editor still applies' : 'Resumed');
         break;
-      case 'togglePose': {
-        const pose = this.character.togglePose();
-        this.editor.refresh();
-        this.hud.showToast(pose === 'sitting' ? 'Meditation pose' : 'Standing idle');
-        break;
-      }
       default:
         break;
     }
@@ -218,8 +212,10 @@ export class App {
     this.abilities.cast(origin, direction, distance, element);
     this.cooldowns.set(element, Math.max(0, settings[element].cooldown));
 
-    // Snap onto the shot and throw the body into it.
+    // Snap onto the shot and throw the body into it. Which clip that is belongs
+    // to the ability, so each spell can be cast with its own gesture.
     this.character.setFacing(this.aim.facing);
+    this.character.playCast(settings[element].castAnim);
     this.character.castLunge();
   }
 

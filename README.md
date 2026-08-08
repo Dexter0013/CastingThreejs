@@ -73,17 +73,25 @@ npm run preview
 
 ### Assets
 
-Two binary assets are served from `public/` and loaded automatically at boot:
+Five binary assets are served from `public/` and loaded automatically at boot:
 
 | File | Purpose |
 | --- | --- |
-| `public/models/Standing Idle.fbx` | Rigged character **and** its idle animation clip |
+| `public/models/Breathing Idle.fbx` | Rigged character **and** its idle animation clip |
+| `public/models/cast1.fbx` | Cast animation — the default for every ability |
+| `public/models/cast2.fbx` | Cast animation |
+| `public/models/cast3.fbx` | Cast animation |
 | `public/hdri/spruit_sunrise.hdr` | HDR probe used for image-based lighting and crystal reflections |
 
-The FBX is a Mixamo export: it contains a skinned mesh plus a single animation stack, so the
-character and the idle clip come from the same file. Its texture paths are absolute local paths
-baked in by the exporting tool and cannot resolve over HTTP, so a hand-authored atlas
-(`public/angtexture.png`) is substituted wholesale.
+All four FBX files are Mixamo exports of the same rig, textures embedded, each carrying a skinned
+mesh plus one animation stack. The character comes from the idle file; the cast files are loaded
+for their clip alone, and the duplicate rig that arrives with each one is released the moment its
+`AnimationClip` has been taken. Clips bind to the skeleton by bone name, which is the whole reason
+an animation authored in another file plays here without retargeting.
+
+Every ability picks the clip it throws — `castAnim` in its settings block, a dropdown under **The
+cast** in its editor folder, `cast1` for all six out of the box. The clip is a one-shot laid over
+the looping idle, with `character.castBlendIn` / `castBlendOut` as the two edges of that overlap.
 
 The HDR is loaded as image-based lighting and as the reflection source for the ice — it is never
 shown as a visible sky. The stage keeps its flat dark backdrop.
@@ -107,7 +115,6 @@ shown as a visible sky. The stage keeps its flat dark backdrop.
 | **G** | Show/hide the VFX editor |
 | **P** | Pause / resume — *the editor keeps applying* |
 | **C** | Clear all active effects |
-| **T** | Toggle the character between the standing idle and the meditation sit |
 | **H** | Hide the controls panel |
 
 `range` and `minRange` are per ability, so the indicator's reach changes with the slot you have
@@ -124,7 +131,7 @@ spending one slot never locks the other out.
 src/
   abilities/      Ability base class (the travelling front), IceAbility, ThunderAbility,
                   MeteorAbility, BeamAbility, SnareAbility, pooling manager
-  animation/      FBX character loading, AnimationMixer, procedural meditation pose,
+  animation/      FBX character loading, AnimationMixer, the per-ability cast clips,
                   the procedural cast lunge
   assets/         Procedural crystal and asteroid geometry, the bolt ribbon strip,
                   the beam tube and its shock discs

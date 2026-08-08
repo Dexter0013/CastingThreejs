@@ -2,23 +2,19 @@ import {
   AnimationMixer,
   Box3,
   Group,
-  LinearMipmapLinearFilter,
+  LoopOnce,
   LoopRepeat,
   MathUtils,
   MeshStandardMaterial,
-  NearestFilter,
-  RepeatWrapping,
-  SRGBColorSpace,
   Vector3
 } from 'three';
-import { settings } from '../config/settings.js';
+import { settings, CAST_ANIMATIONS } from '../config/settings.js';
 import { LAYER } from '../core/Layers.js';
 import { disposeObject } from '../utils/dispose.js';
-import { SittingPose } from './SittingPose.js';
 
-const CHARACTER_URL = './models/Standing Idle.fbx';
-/** Hand-authored albedo atlas replacing the FBX's unresolvable texture refs. */
-const CHARACTER_TEXTURE_URL = './angtexture.png';
+const CHARACTER_URL = './models/Breathing Idle.fbx';
+/** One file per entry in `CAST_ANIMATIONS`; only their clips are kept. */
+const castUrl = (name) => `./models/${name}.fbx`;
 /** Mixamo exports in centimetres. */
 const FBX_SCALE = 0.01;
 /** Rigs vary; normalise to a believable human height so the world scale holds. */
@@ -27,15 +23,15 @@ const TARGET_HEIGHT = 1.78;
 /**
  * Loads the rigged FBX, normalises it for the scene and drives its animation.
  *
- * The character is intentionally stationary — it only ever idles. The class is
- * still built around a small action registry with cross-fading so additional
- * clips (a casting flourish, a reaction) can be dropped in without touching
- * anything else.
+ * The character never leaves the spot — it breathes on a loop, turns to face
+ * where you are aiming, and throws one of the cast clips when you fire. Those
+ * clips ship as separate Mixamo exports of the *same* skeleton, so only their
+ * `AnimationClip` is kept: the mixer binds tracks by bone name, which is all
+ * that a shared rig needs for a clip authored in another file to play here.
  *
- * On top of the clip sits a second, procedural layer: `SittingPose` bakes a
- * cross-legged meditation pose straight onto the skeleton, and `settings.
- * character.pose` cross-fades the two. Because that layer runs *after* the
- * mixer each frame it needs no clip of its own.
+ * Which clip an ability throws is `settings[element].castAnim` — a per-ability
+ * choice, editable live, which is why `playCast` takes the name each time
+ * rather than caching one.
  */
 export class CharacterController {
   constructor(environment) {
@@ -51,17 +47,16 @@ export class CharacterController {
     this.root.add(this.tilt);
 
     this.mixer = null;
-    this.actions = new Map();
-    this.current = null;
+    /** The looping breath, always running underneath a cast. */
+    this.idle = null;
+    /** name → one-shot cast action. */
+    this.casts = new Map();
+    /** The cast currently being thrown, null while idling. */
+    this._cast = null;
     this.height = 1.8;
     this.headPosition = new Vector3(0, 1.5, 0);
     /** The rig's own forward, in model space — the axis a bank rotates about. */
     this.forwardAxis = new Vector3(0, 0, 1);
-
-    this.sitting = null;
-    this._poseWeight = 0; // 0 = idle clip, 1 = seated
-    this._poseTime = 0;
-    this._poseBlend = null; // seconds, overrides settings for one transition
 
     /**
      * Yaw of the rig's own forward in model space. Bind poses are not
@@ -78,26 +73,14 @@ export class CharacterController {
    * @param {import('../loaders/AssetLoader.js').AssetLoader} assets
    */
   async load(assets) {
-    const [fbx, albedo] = await Promise.all([
+    // The cast files are the same character again, so they cost a parse each
+    // but nothing at run time — everything but the clip is thrown away below.
+    const [fbx, ...castFiles] = await Promise.all([
       assets.loadFBX(CHARACTER_URL),
-      assets.loadTexture(CHARACTER_TEXTURE_URL)
+      ...CAST_ANIMATIONS.map((name) => assets.loadFBX(castUrl(name)))
     ]);
     // The FBX resolves before its textures do; material prep inspects them.
     await assets.settled();
-
-    // A small pixel-art atlas: keep the texels hard under magnification, but
-    // let mipmaps handle minification so the face doesn't shimmer at distance.
-    albedo.colorSpace = SRGBColorSpace;
-    albedo.magFilter = NearestFilter;
-    albedo.minFilter = LinearMipmapLinearFilter;
-    albedo.generateMipmaps = true;
-    albedo.anisotropy = 4;
-    // The rig's UVs run outside the unit square (u ∈ [-1, 1], v ∈ [1, 2]), so
-    // the default clamp would drag one edge row across the whole body.
-    albedo.wrapS = RepeatWrapping;
-    albedo.wrapT = RepeatWrapping;
-    albedo.needsUpdate = true;
-    this.albedo = albedo;
 
     fbx.scale.setScalar(FBX_SCALE);
     fbx.updateMatrixWorld(true);
@@ -119,34 +102,63 @@ export class CharacterController {
     fbx.position.y -= box.min.y;
 
     this._prepareMaterials(fbx);
+    this._measureFacing(fbx);
 
     this.tilt.add(fbx);
     this.model = fbx;
     this.headPosition.set(0, size.y * 0.86, 0);
 
-    // Bake the seated pose while the rig is still untouched by the mixer.
-    this.sitting = new SittingPose(fbx);
-    if (this.sitting.valid) this.forwardAxis.copy(this.sitting.forward);
-    this._forwardYaw = Math.atan2(this.forwardAxis.x, this.forwardAxis.z);
-    this._rightAxis.set(0, 1, 0).cross(this.forwardAxis).normalize();
-
-    // The idle clip ships inside the same file.
     this.mixer = new AnimationMixer(fbx);
-    const clips = fbx.animations ?? [];
-    if (clips.length === 0) {
-      console.warn('[CharacterController] no animation clips found in the FBX');
+    this.mixer.addEventListener('finished', this._onCastFinished);
+
+    // The breath ships inside the character file itself.
+    const idleClip = (fbx.animations ?? [])[0];
+    if (!idleClip) {
+      console.warn('[CharacterController] no idle clip found in the FBX');
     } else {
-      clips.forEach((clip, index) => {
-        const name = clip.name && clip.name !== 'mixamo.com' ? clip.name : index === 0 ? 'idle' : `clip_${index}`;
-        const action = this.mixer.clipAction(clip);
-        action.setLoop(LoopRepeat, Infinity);
-        action.clampWhenFinished = false;
-        this.actions.set(name, action);
-      });
-      this.play([...this.actions.keys()][0], 0);
+      this.idle = this.mixer.clipAction(idleClip);
+      this.idle.setLoop(LoopRepeat, Infinity);
+      this.idle.play();
     }
 
+    const bones = new Set();
+    fbx.traverse((node) => bones.add(node.name));
+    CAST_ANIMATIONS.forEach((name, index) => this._registerCast(name, castFiles[index], bones));
+
     return this;
+  }
+
+  /**
+   * Keep one cast file's clip and release the duplicate rig that came with it.
+   *
+   * @param {string} name                 the id used by `settings[element].castAnim`
+   * @param {import('three').Group} file  the freshly loaded FBX
+   * @param {Set<string>} bones           every node name in *this* rig
+   */
+  _registerCast(name, file, bones) {
+    const clip = (file?.animations ?? [])[0];
+    if (!clip) {
+      console.warn(`[CharacterController] "${name}.fbx" carries no animation`);
+      return;
+    }
+
+    // A clip authored against another export of this rig binds by bone name, so
+    // a mismatch shows up as a track that resolves to nothing rather than as an
+    // error — say so here instead of letting the cast silently do nothing.
+    if (!clip.tracks.some((track) => bones.has(track.name.split('.')[0]))) {
+      console.warn(`[CharacterController] "${name}.fbx" does not match this skeleton`);
+      return;
+    }
+
+    clip.name = name;
+    const action = this.mixer.clipAction(clip);
+    action.setLoop(LoopOnce, 1);
+    // Hold the last frame rather than snapping home; the fade back to the idle
+    // is what actually ends the cast.
+    action.clampWhenFinished = true;
+    this.casts.set(name, action);
+
+    disposeObject(file);
   }
 
   /** Convert imported materials to PBR and hook them into the shadow system. */
@@ -168,14 +180,16 @@ export class CharacterController {
         if (converted.has(material)) return converted.get(material);
 
         // FBX gives us Phong/Lambert; move to Standard so IBL and CSM apply.
-        // The FBX references its own textures by absolute local path, so they
-        // never resolve — the authored atlas is substituted wholesale, with a
-        // white base colour so the map's tones come through untinted.
+        // The maps come straight out of the file — this rig carries its textures
+        // embedded, so the loader hands them over as blobs and there is nothing
+        // to substitute. Exporters disagree on which slot the normal map lands
+        // in, so both are passed through and the empty one costs nothing.
         const standard = new MeshStandardMaterial({
           name: material.name,
-          color: 0xffffff,
-          map: this.albedo,
+          color: material.color ?? 0xffffff,
+          map: material.map ?? null,
           normalMap: material.normalMap ?? null,
+          bumpMap: material.normalMap ? null : (material.bumpMap ?? null),
           roughness: 0.85,
           metalness: 0,
           transparent: material.transparent ?? false,
@@ -183,8 +197,14 @@ export class CharacterController {
           side: material.side
         });
 
+        // Worth the samples: the character is the one thing on screen the camera
+        // gets close to, and its texels sit at a grazing angle across the torso.
+        for (const map of [standard.map, standard.normalMap, standard.bumpMap]) {
+          if (map) map.anisotropy = 4;
+        }
+
         this.environment.registerShadowCaster(standard);
-        material.dispose();
+        material.dispose(); // textures are shared with the new material, not owned
         converted.set(material, standard);
         return standard;
       });
@@ -193,51 +213,81 @@ export class CharacterController {
     });
   }
 
-  /** Cross-fade to a named action. */
-  play(name, fadeDuration = 0.35) {
-    const next = this.actions.get(name);
-    if (!next || next === this.current) return;
+  /**
+   * Derive the rig's own forward from the bind pose.
+   *
+   * The heel → toe vector is the most reliable indicator of facing on a bind
+   * pose that may not be axis aligned, and everything that turns the body reads
+   * the yaw it produces.
+   */
+  _measureFacing(root) {
+    root.updateMatrixWorld(true);
 
-    next.reset();
-    next.enabled = true;
-    next.setEffectiveTimeScale(1);
-    next.setEffectiveWeight(1);
+    let foot = null;
+    let toe = null;
+    root.traverse((node) => {
+      if (!node.isBone) return;
+      // Exporters disagree on the namespace: "mixamorig:LeftFoot", "mixamorigLeftFoot".
+      const short = node.name.split(':').pop().replace(/^mixamorig/i, '');
+      if (short === 'LeftFoot' && !foot) foot = node;
+      else if (short === 'LeftToeBase' && !toe) toe = node;
+    });
 
-    if (this.current && fadeDuration > 0) {
-      next.crossFadeFrom(this.current, fadeDuration, true);
+    if (foot && toe) {
+      const heel = foot.getWorldPosition(new Vector3());
+      const tip = toe.getWorldPosition(new Vector3()).sub(heel).setY(0);
+      if (tip.lengthSq() > 1e-6) this.forwardAxis.copy(tip).normalize();
     }
-    next.play();
-    this.current = next;
+
+    this._forwardYaw = Math.atan2(this.forwardAxis.x, this.forwardAxis.z);
+    this._rightAxis.set(0, 1, 0).cross(this.forwardAxis).normalize();
   }
 
   /* ------------------------------------------------------------------ */
-  /* pose layer                                                          */
+  /* cast clips                                                          */
   /* ------------------------------------------------------------------ */
 
   /**
-   * @param {'idle'|'sitting'} pose
-   * @param {number|null} [blend] seconds for *this* transition only; the
-   *   configured blend time is used again as soon as the pose is set without one.
+   * Throw one cast clip over the idle, once.
+   *
+   * @param {string} [name] an id from `CAST_ANIMATIONS`; falls back to the first
+   *   one so an ability configured with a clip that failed to load still moves.
    */
-  setPose(pose, blend = null) {
-    this._poseBlend = blend;
-    settings.character.pose = pose === 'sitting' ? 'sitting' : 'idle';
-    return settings.character.pose;
+  playCast(name) {
+    const next = this.casts.get(name) ?? this.casts.get(CAST_ANIMATIONS[0]);
+    if (!next || !this.idle) return;
+
+    const previous = this._cast;
+    this._cast = next;
+
+    next.reset();
+    next.setEffectiveTimeScale(1);
+    next.play();
+
+    // Fade from whatever is actually on screen — the idle on a first cast, the
+    // clip still finishing on a re-cast — so the body never drops to the bind
+    // pose for a frame in between two throws. Re-throwing the *same* clip only
+    // restarts it: `reset()` has already left it at full weight.
+    const from = previous ?? this.idle;
+    if (from !== next) next.crossFadeFrom(from, settings.character.castBlendIn, false);
   }
 
-  /** Flip between the idle clip and the meditation sit. @returns {string} the new pose */
-  togglePose() {
-    return this.setPose(settings.character.pose === 'sitting' ? 'idle' : 'sitting');
+  /** True while a cast clip is playing. */
+  get isCasting() {
+    return this._cast !== null;
   }
 
-  get isSitting() {
-    return settings.character.pose === 'sitting';
-  }
+  _onCastFinished = (event) => {
+    // Anything else finishing is an older clip that a re-cast already faded out.
+    if (event.action !== this._cast) return;
+    this._cast = null;
 
-  /** How far the seated pose has actually blended in, 0..1. */
-  get poseWeight() {
-    return this._poseWeight;
-  }
+    // The fade in disabled the idle once its weight hit zero; wake it back up
+    // before asking it to come in again.
+    this.idle.enabled = true;
+    this.idle.setEffectiveTimeScale(1);
+    this.idle.crossFadeFrom(event.action, settings.character.castBlendOut, false);
+  };
 
   /* ------------------------------------------------------------------ */
   /* placement — driven by walk mode, inert otherwise                    */
@@ -266,10 +316,11 @@ export class CharacterController {
   /**
    * Punch the body forward, then let it settle.
    *
-   * The rig only ships an idle clip, so the cast is sold procedurally: a pitch
+   * An accent laid over the cast clip rather than a substitute for it: a pitch
    * about the body's own right axis plus a shove back along its forward axis,
    * both riding on one decaying envelope. Applied to `tilt` rather than `root`
-   * so it composes with the heading instead of fighting it.
+   * so it composes with the heading instead of fighting it, and turned off by
+   * dropping `castLean` and `castRecoil` to zero when the clip says it all.
    */
   castLunge() {
     this._lunge = 1;
@@ -303,25 +354,8 @@ export class CharacterController {
 
     if (!this.mixer) return;
 
-    // Editing the tuning sliders re-bakes the pose; cheap and rare.
-    if (this.sitting?.valid && this.sitting.stale) this.sitting.build();
-
     this.mixer.timeScale = settings.global.animationSpeed;
     this.mixer.update(dt);
-
-    if (!this.sitting?.valid) return;
-    this._poseTime += dt;
-
-    const target = this.isSitting ? 1 : 0;
-    const step = dt / Math.max(0.001, this._poseBlend ?? settings.character.blendTime);
-    this._poseWeight = MathUtils.clamp(
-      this._poseWeight + MathUtils.clamp(target - this._poseWeight, -step, step),
-      0,
-      1
-    );
-
-    // Ease the blend so the sit settles instead of arriving at constant speed.
-    this.sitting.apply(MathUtils.smoothstep(this._poseWeight, 0, 1), this._poseTime);
   }
 
   get position() {
@@ -329,9 +363,12 @@ export class CharacterController {
   }
 
   dispose() {
+    this.mixer?.removeEventListener('finished', this._onCastFinished);
     this.mixer?.stopAllAction();
     this.mixer = null;
-    this.actions.clear();
+    this.idle = null;
+    this.casts.clear();
+    this._cast = null;
     disposeObject(this.root);
   }
 }

@@ -110,9 +110,6 @@ export class InputManager extends EventEmitter {
       case 'KeyP':
         this.emit('action', 'togglePause');
         break;
-      case 'KeyT':
-        this.emit('action', 'togglePose');
-        break;
       default:
         break;
     }

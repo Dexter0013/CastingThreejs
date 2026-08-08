@@ -28,6 +28,16 @@
  * `zoneRadius`, the footprint the circle indicator measures out.
  */
 
+/**
+ * The cast animations shipped alongside the rig, in `public/models/<id>.fbx`.
+ *
+ * Every ability block carries a `castAnim` naming one of these, so each spell
+ * can throw the body differently; `CharacterController` loads all of them once
+ * at boot and keeps only their clips, and the editor turns this array straight
+ * into the per-ability dropdown.
+ */
+export const CAST_ANIMATIONS = ['cast1', 'cast2', 'cast3'];
+
 export const settings = {
   /* ------------------------------------------------------------------ */
   /* Global multipliers                                                  */
@@ -197,15 +207,12 @@ export const settings = {
   /* Character                                                           */
   /* ------------------------------------------------------------------ */
   character: {
-    pose: 'idle', // 'idle' (the FBX clip) or 'sitting' (animation/SittingPose.js)
-    blendTime: 0.9,
-    breathing: 1.0,
-    breathRate: 0.2,
-    legSpread: 1.0,
-    torsoLean: 0.0,
-    seatClearance: 0.004,
-    handsOnKnees: true,
-    handHeight: 0.095,
+    /* --- blending the cast clip over the idle --- */
+    // The idle loops forever; a cast clip is a one-shot laid over the top of it,
+    // so these are the two edges of that overlap. In fast, out soft: the throw
+    // has to land on the frame you clicked, the recovery does not.
+    castBlendIn: 0.12, // seconds to cross-fade from the idle into the cast
+    castBlendOut: 0.3, // seconds to fall back to the idle once it finishes
 
     /* --- how the body sells the cast --- */
     turnToAim: true, // face the arrow while aiming
@@ -236,6 +243,7 @@ export const settings = {
     speed: 26.0, // how fast the fracture front travels, metres/second
     lifetime: 3.6, // seconds the field stands before it withdraws
     cooldown: 0.4, // seconds before the ability can be armed again
+    castAnim: 'cast1', // which clip in `CAST_ANIMATIONS` the body throws
 
     /* --- the footprint the spikes fill --- */
     widthNear: 0.55, // half-width of the band at the caster, metres
@@ -402,6 +410,7 @@ export const settings = {
     lifetime: 0.45, // seconds the bolt holds after it lands
     fadeTime: 0.5, // seconds it takes to blow out
     cooldown: 0.5,
+    castAnim: 'cast1', // which clip in `CAST_ANIMATIONS` the body throws
 
     /* --- where the bolt leaves the caster --- */
     // The beam starts at the hand, not at the feet, so these are measured from
@@ -583,6 +592,7 @@ export const settings = {
     lifetime: 2.2, // seconds the crater burns after the impact
     fadeTime: 1.6, // seconds everything takes to clear
     cooldown: 0.9,
+    castAnim: 'cast1', // which clip in `CAST_ANIMATIONS` the body throws
 
     /* --- the flight path --- */
     // The rock is thrown from a hand, so these are measured from the caster's
@@ -872,6 +882,7 @@ export const settings = {
     lifetime: 1.15, // seconds it burns once it lands
     fadeTime: 0.4, // seconds it takes to collapse
     cooldown: 1.6,
+    castAnim: 'cast1', // which clip in `CAST_ANIMATIONS` the body throws
 
     /* --- where it leaves the caster --- */
     // Both hands, so this one sits on the centre line rather than off a
@@ -1149,6 +1160,7 @@ export const settings = {
     lifetime: 2.6, // seconds the snare stands
     fadeTime: 0.75, // seconds it takes to collapse
     cooldown: 1.4,
+    castAnim: 'cast1', // which clip in `CAST_ANIMATIONS` the body throws
 
     /* --- the leash that plants it --- */
     // Thrown from a hand, so these are measured from the caster's origin in the
@@ -1420,6 +1432,7 @@ export const settings = {
     shatterStagger: 0.45, // seconds of random delay between neighbours
     sinkTime: 1.15, // seconds one shard takes to crumble and withdraw
     cooldown: 1.6,
+    castAnim: 'cast1', // which clip in `CAST_ANIMATIONS` the body throws
 
     /* --- where the front leaves the caster --- */
     // Thrown from a hand, so these are measured from the caster's origin in the

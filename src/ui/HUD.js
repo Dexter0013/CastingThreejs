@@ -47,7 +47,7 @@ export class HUD {
         <div style="margin-top:6px">
           <kbd>G</kbd> editor &nbsp; <kbd>P</kbd> pause &nbsp; <kbd>C</kbd> clear
         </div>
-        <div><kbd>T</kbd> sit / stand &nbsp; <kbd>H</kbd> hide this</div>
+        <div><kbd>H</kbd> hide this</div>
         <div class="hud__help-note">Paused still applies every editor change.</div>
       </div>
 
