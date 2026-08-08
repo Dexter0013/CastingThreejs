@@ -310,9 +310,9 @@ export const settings = {
     frostRate: 3.6, // patches laid per metre of front travel
     frostLife: 7.0, // seconds a patch lingers
     frostIntensity: 0.85,
-    frostCrystals: 1.5, // sharpness of the frost fingers
-    colorFrost: '#cdefff',
-    colorFrostEdge: '#5fd0ff',
+    frostCrystals: 1.5, // grain of the packed snow
+    colorFrost: '#f0f9ff', // the lit face of the snow
+    colorFrostEdge: '#79b6dd', // what it goes in its own shadow
     shockRadius: 5.5, // impact shockwave ring, metres
     colorShockA: '#5fd0ff', // body of the shockwave ring
     colorShockB: '#f2feff', // its crest
@@ -1452,33 +1452,32 @@ export const settings = {
      * The reference is a *starburst*, not a fence: long needles thrown outward
      * from the rim at a steep angle, fanned off the radius so they cross, with
      * wildly uneven lengths. `ringLean` is the single control that decides
-     * whether this reads as a crown or a picket line — at 0 it is a fence, at
-     * 0.8 (≈46°) the blades are thrown out over the floor the way they are in
-     * the frame.
+     * whether this reads as a crown or a picket line — at 0 it is a fence, and
+     * the higher it goes the further the blades are thrown out over the floor.
      */
-    ringHeight: 4.0, // length of a blade on the wall, metres
-    ringWave: 0.34, // how uneven the crest of that wall is, 0..1
-    skirtHeight: 1.15, // length of a shard in the skirt, metres
-    coreHeight: 2.4, // length of the spire, metres
-    heightJitter: 0.6,
-    ringLean: 0.82, // radians the wall is thrown outward (≈46°)
-    skirtLean: 0.95, // ... and the skirt, which is flatter still
-    coreLean: 0.12, // the spire stands nearly upright
-    leanJitter: 0.5,
-    fan: 0.5, // radians a blade is splayed off its own radius, ± — the crossing
+    ringHeight: 1.4, // length of a blade on the wall, metres
+    ringWave: 0.61, // how uneven the crest of that wall is, 0..1
+    skirtHeight: 1.7, // length of a shard in the skirt, metres
+    coreHeight: 5.2, // length of the spire, metres
+    heightJitter: 0.65,
+    ringLean: 0.33, // radians the wall is thrown outward (≈19°)
+    skirtLean: 0.3, // ... and the skirt
+    coreLean: 0.2, // the spire stands nearly upright
+    leanJitter: 1.3,
+    fan: 1.16, // radians a blade is splayed off its own radius, ± — the crossing
     twist: 1.0, // random yaw, 0..1 of a full turn
-    rubble: 0.34, // fraction of the skirt demoted to ankle-height wreckage
+    rubble: 0.53, // fraction of the skirt demoted to ankle-height wreckage
     rubbleScale: 0.34,
 
     /* --- an individual crystal --- */
-    // Needles, not prisms: a tenth of the Lance's taper and two thirds of its
-    // radius over a longer body, so the blade comes to a point you can see.
-    radius: 0.21, // base radius, metres
-    radiusJitter: 0.8,
-    taper: 0.03, // tip radius as a fraction of the base
-    facets: 5, // sides of the prism — fewer, so each facet is a broad flash
-    roughness: 0.1, // how far the facets are pushed off a clean prism
-    bend: 0.14, // sideways curve from base to tip — nearly straight
+    // Blunt wedges rather than needles: a thick base that only narrows to about
+    // a third at the tip, so each facet stays wide enough to catch a flash.
+    radius: 0.375, // base radius, metres
+    radiusJitter: 0.94,
+    taper: 0.36, // tip radius as a fraction of the base
+    facets: 7, // sides of the prism — fewer, so each facet is a broad flash
+    roughness: 0.0, // how far the facets are pushed off a clean prism
+    bend: 0.0, // sideways curve from base to tip — nearly straight
 
     /* --- the bloom: when each shard goes up --- */
     riseTime: 0.2, // seconds from buried to full height
@@ -1509,11 +1508,11 @@ export const settings = {
     colorPrismB: '#8f9bff', // ... and the other
     colorCore: '#a8f4ff', // the light piped up the blade
     colorTip: '#ffffff', // the incandescent point
-    body: 0.5, // how much of a body it has at all, 0 = pure edges
-    edgePower: 2.2, // how tightly the silhouette hugs the rim
-    edgeGain: 1.7, // how hard it burns
-    dispersion: 0.65, // how far the red, green and blue fresnels come apart
-    pipe: 1.6, // light piped along the blade
+    body: 1.37, // how much of a body it has at all, 0 = pure edges
+    edgePower: 1.14, // how tightly the silhouette hugs the rim
+    edgeGain: 0.81, // how hard it burns
+    dispersion: 0.73, // how far the red, green and blue fresnels come apart
+    pipe: 1.09, // light piped along the blade
     tipBias: 1.6, // how hard that light crowds toward the point
     bands: 1.4, // slow waves travelling up it
     pulseSpeed: 0.6,
@@ -1609,12 +1608,12 @@ export const settings = {
     frostSpread: 1.5, // the rime sheet under the crown, × zoneRadius
     frostLife: 7.5, // seconds a rime patch lingers
     frostIntensity: 0.85,
-    frostCrystals: 1.5, // sharpness of the frost fingers
+    frostCrystals: 1.5, // grain of the packed snow
     frostCollar: 2.6, // rime around the foot of a blade, × its own radius
     rimeRate: 3.0, // rime patches creeping around the boundary, per second
     rimeRadius: 1.0, // radius of one, metres
-    colorFrost: '#cdefff',
-    colorFrostEdge: '#5fd0ff',
+    colorFrost: '#f0f9ff', // the lit face of the snow
+    colorFrostEdge: '#79b6dd', // what it goes in its own shadow
     shockRadius: 7.5, // the ring that snaps out when the crown blooms, metres
     ringRate: 0.9, // pressure rings pushed out while it stands, per second
     colorShockA: '#8ee8ff', // body of the shockwave ring

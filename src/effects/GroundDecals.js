@@ -30,9 +30,22 @@ export const DecalType = Object.freeze({
 });
 
 const DECAL_VERTEX = /* glsl */ `
+  uniform vec3 uLightDir;      // world space, toward the sun
   varying vec2 vUv;
+  varying vec3 vLight;         // the same direction, in the decal's own frame
+
   void main() {
     vUv = uv;
+
+    // Decals are spawned with a random yaw to decorrelate their noise, so a key
+    // direction taken straight from world space would light every patch from a
+    // different side of the room. Rotate it into the quad's frame once, here:
+    // the fragment stage's c.x runs along local +X and c.y along local -Z.
+    vec3 ax = normalize(modelMatrix[0].xyz);
+    vec3 ay = normalize(modelMatrix[1].xyz);
+    vec3 az = normalize(modelMatrix[2].xyz);
+    vLight = normalize(vec3(dot(uLightDir, ax), dot(uLightDir, ay), -dot(uLightDir, az)));
+
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
@@ -43,13 +56,32 @@ const DECAL_FRAGMENT = /* glsl */ `
   uniform float uSeed;
   uniform float uIntensity;
   uniform float uWidth;      // crack / ring thickness
+  uniform float uRadius;     // footprint radius in metres, for world-scaled grain
   uniform vec3  uColorA;
   uniform vec3  uColorB;
   uniform float uGlobalGlow;
   varying vec2 vUv;
+  varying vec3 vLight;
 
   ${noiseGLSL}
   ${commonGLSL}
+
+  /**
+   * Depth of settled snow at q (metres from the centre of the patch), ~0..1.
+   *
+   * Three scales, because that is what makes powder read as powder rather than
+   * as a texture: banked drifts you can see the shape of, the shouldered slabs
+   * where the crust has packed and cracked, and a fine grain on top for the
+   * light to catch. It is a *height* field — the FROST decal differentiates it
+   * for a normal, which is the whole reason the patch stops looking flat.
+   */
+  float snowDepth(vec2 q, float seed, float sharpness) {
+    float drift = fbm3(vec3(q * 0.85, seed)) * 0.5 + 0.5;
+    vec2  cell  = voronoi2(q * (1.4 + sharpness * 0.9) + seed * 7.0);
+    float slabs = smoothstep(0.0, 0.55, cell.x) * 0.30 + cell.y * 0.12;
+    float grain = snoise01(vec3(q * (7.0 + sharpness * 5.0), seed * 3.0)) * 0.15;
+    return drift * 0.60 + slabs + grain;
+  }
 
   void main() {
     vec2 c = (vUv - 0.5) * 2.0;
@@ -101,30 +133,61 @@ const DECAL_FRAGMENT = /* glsl */ `
       color = mix(uColorA, uColorB, n * 0.5 + 0.5);
 
     #elif DECAL == 6                                 /* FROST */
-      // Rime spreading out from where the ground was fractured.
+      // Snow driven into the ground where the cold went through it.
       //
-      // Two structures stacked: an advancing *front* whose radius is dragged
-      // into fingers by angular noise (frost never creeps as a circle), and a
-      // voronoi cell field underneath it — the seams between plates are where
-      // rime piles up thickest, which is what stops the patch reading as spilt
-      // paint. uWidth carries the crystal sharpness.
-      float grow = pow(uAge, 0.32);
-      float ang = atan(c.y, c.x);
-      float fingers = 0.70 + 0.4 * snoise(vec3(cos(ang), sin(ang), uSeed * 6.0) * 3.2);
-      float n = fbm3(vec3(c * 3.4, uSeed * 9.0));
-      float edge = d + n * 0.22;
-      float reach = grow * fingers;
+      // The old version drove its silhouette off atan(), and an angular lookup
+      // hands every radius along a bearing the same lobe value — which is
+      // literally how you draw a star, and a star is what it drew. Everything
+      // here is sampled in the *plane* instead, and the patch is **shaded** off
+      // a height field rather than tinted through a mask: cheap forward
+      // differences give a normal, the scene's own key direction lights it, and
+      // the result banks and catches light like powder instead of reading as a
+      // blue-and-white transfer stuck to the floor.
+      //
+      // uWidth (the "crystal sharpness" slider) is the grain frequency.
+      float seed = uSeed * 37.0;
+      float sharp = clamp(uWidth, 0.05, 4.0);
+      // Sample in metres, so a small rime patch and the broad sheet under an
+      // impact have the same size of grain and read as the same substance.
+      vec2 q = c * max(0.35, uRadius);
 
-      float sheet = smoothstep(reach, reach - 0.34, edge);
-      vec2 cell = voronoi2(c * (4.0 + uWidth * 7.0) + uSeed * 20.0);
-      float seams = smoothstep(0.30, 0.02, cell.x);
-      float rim = smoothstep(0.10, 0.0, abs(edge - reach));
+      /* ---- the drift: a ragged reach, never a disc ---- */
+      vec2 warp = vec2(fbm3(vec3(q * 0.55, seed)), fbm3(vec3(q * 0.55, seed + 5.7))) * 0.45;
+      float lobes = fbm3(vec3(q * 0.8 + warp, seed + 13.0));
+      float grow = pow(uAge, 0.30);
+      float reach = d * (1.0 - lobes * 0.40);
+      float cover = smoothstep(grow, grow - 0.38, reach);
+      if (cover < 0.004) discard;
 
-      float mask = clamp(sheet * (0.32 + 0.8 * seams) + rim * 0.85, 0.0, 1.0);
-      alpha = mask * fadeOut;
-      color = mix(uColorA, uColorB, clamp(seams * 0.8 + rim, 0.0, 1.0));
-      // The growing edge is still freezing, so it stays lit while it advances.
-      color += uColorB * rim * 1.7 * (1.0 - smoothstep(0.0, 0.5, uAge));
+      /* ---- relief ---- */
+      float e = 0.16;                               // metres between taps
+      float h  = snowDepth(q, seed, sharp);
+      float hx = snowDepth(q + vec2(e, 0.0), seed, sharp);
+      float hy = snowDepth(q + vec2(0.0, e), seed, sharp);
+      // A shallow bump: snow is soft, and a steep fake normal reads as gravel.
+      vec3 nrm = normalize(vec3((h - hx) / e * 0.30, 1.0, (h - hy) / e * 0.30));
+
+      float lambert = clamp(dot(nrm, normalize(vLight)), 0.0, 1.0);
+      // Snow scatters deep, so its own shadow never goes black — it goes blue.
+      float shade = 0.36 + 0.64 * pow(lambert, 0.8);
+
+      /* ---- how thickly it lies ---- */
+      // Thick in the middle, breaking into scattered grains at the rim, so the
+      // patch has no printed outline anywhere.
+      float lie = smoothstep(0.10, 0.52, cover * (0.34 + 0.78 * h));
+
+      alpha = lie * fadeOut * 0.95;
+      color = mix(uColorB * 0.55, mix(uColorA, vec3(1.0), 0.45), shade);
+
+      // Ice glints where the crust catches the light — stepped in time so they
+      // twinkle as the patch settles rather than crawling.
+      float glint = smoothstep(0.90, 1.0, snoise01(vec3(q * 9.0, floor(uTime * 7.0) * 0.37 + seed)));
+      color += glint * pow(lambert, 2.0) * 1.5 * (1.0 - smoothstep(0.0, 0.7, uAge));
+
+      // The advancing lip is still freezing, so it stays lit while it travels.
+      float lip = smoothstep(0.10, 0.0, abs(reach - grow)) * (1.0 - smoothstep(0.0, 0.5, uAge));
+      color = mix(color, mix(uColorB, vec3(1.0), 0.6), lip * 0.55);
+      alpha = clamp(alpha + lip * cover * 0.25 * fadeOut, 0.0, 1.0);
 
     #elif DECAL == 5                                 /* FOAM */
       // A sheet of foam thrown outward by the impact, which then drains from
@@ -233,6 +296,7 @@ export class DecalSystem {
         uSeed: { value: Math.random() },
         uIntensity: { value: 1 },
         uWidth: { value: 0.12 },
+        uRadius: { value: 1 },
         uColorA: { value: new Color(0.1, 0.06, 0.05) },
         uColorB: { value: new Color(1, 0.5, 0.15) }
       }),
@@ -277,6 +341,7 @@ export class DecalSystem {
     u.uSeed.value = Math.random();
     u.uIntensity.value = intensity;
     u.uWidth.value = width;
+    u.uRadius.value = radius;
     if (colorA) u.uColorA.value.copy(colorA);
     if (colorB) u.uColorB.value.copy(colorB);
 

@@ -11,6 +11,7 @@ import {
 } from 'three';
 import { settings } from '../config/settings.js';
 import { getColor } from '../utils/color.js';
+import { frame } from '../core/FrameUniforms.js';
 import { patchOnBeforeCompile } from '../utils/shaderPatch.js';
 
 const _sunDir = new Vector3();
@@ -171,6 +172,9 @@ export class Environment {
     // contains the play area.
     this.sunTarget.position.copy(this.focus);
     this.sun.position.copy(this.focus).addScaledVector(_sunDir, -70);
+
+    // Hand the key direction to the custom shaders that fake their own normals.
+    frame.uLightDir.value.copy(_sunDir).negate();
 
     this.sun.intensity = env.sunIntensity;
     this.sun.color.copy(getColor(env.sunColor));

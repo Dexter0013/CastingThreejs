@@ -442,10 +442,10 @@ export class Editor {
     R(ground, c, 'frostRate', 0.2, 12, 0.1, 'patches / metre');
     R(ground, c, 'frostLife', 0.5, 20, 0.1, 'patch lifetime');
     R(ground, c, 'frostIntensity', 0, 2, 0.01, 'intensity');
-    R(ground, c, 'frostCrystals', 0, 4, 0.01, 'crystal sharpness');
+    R(ground, c, 'frostCrystals', 0, 4, 0.01, 'snow grain');
     R(ground, c, 'shockRadius', 0.5, 20, 0.1, 'shockwave radius');
-    ground.addColor(c, 'colorFrost').name('frost');
-    ground.addColor(c, 'colorFrostEdge').name('frost edge');
+    ground.addColor(c, 'colorFrost').name('snow');
+    ground.addColor(c, 'colorFrostEdge').name('snow shadow');
     ground.addColor(c, 'colorShockA').name('shockwave ring');
     ground.addColor(c, 'colorShockB').name('shockwave crest');
 
@@ -1473,14 +1473,14 @@ export class Editor {
     R(ground, c, 'frostSpread', 0.2, 4, 0.05, 'impact rime, × footprint');
     R(ground, c, 'frostLife', 0.5, 20, 0.1, 'rime lifetime');
     R(ground, c, 'frostIntensity', 0, 2, 0.01, 'rime intensity');
-    R(ground, c, 'frostCrystals', 0, 4, 0.01, 'rime sharpness');
+    R(ground, c, 'frostCrystals', 0, 4, 0.01, 'snow grain');
     R(ground, c, 'frostCollar', 0, 8, 0.05, 'collar, × shard radius');
     R(ground, c, 'rimeRate', 0, 20, 0.1, 'rim rime / sec');
     R(ground, c, 'rimeRadius', 0.05, 6, 0.05, 'rim rime radius');
     R(ground, c, 'shockRadius', 0.5, 25, 0.1, 'shockwave radius');
     R(ground, c, 'ringRate', 0, 12, 0.1, 'pressure rings / sec');
-    ground.addColor(c, 'colorFrost').name('rime');
-    ground.addColor(c, 'colorFrostEdge').name('rime edge');
+    ground.addColor(c, 'colorFrost').name('snow');
+    ground.addColor(c, 'colorFrostEdge').name('snow shadow');
     ground.addColor(c, 'colorCrack').name('fracture');
     ground.addColor(c, 'colorCrackGlow').name('fracture glow');
     ground.addColor(c, 'colorShockA').name('shockwave ring');
