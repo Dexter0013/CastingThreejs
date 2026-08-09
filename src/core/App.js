@@ -242,6 +242,9 @@ export class App {
     await this.environment.loadEnvironment(hdr);
     frame.uEnvMap.value = this.environment.equirect;
 
+    this.loading.setProgress(0.35, 'Loading floor…');
+    await this.ground.loadTextures(assets);
+
     this.loading.setProgress(0.5, 'Loading character…');
     await this.character.load(assets);
 

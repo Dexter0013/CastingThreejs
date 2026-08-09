@@ -1590,12 +1590,19 @@ export class Editor {
 
     const fog = folder.addFolder('Backdrop, fog & dust');
     fog.addColor(e, 'backgroundColor').name('backdrop');
+    fog.add(e, 'fogEnabled').name('fog enabled');
     fog.addColor(e, 'fogColor').name('fog colour');
-    R(fog, e, 'fogNear', 1, 120, 1, 'fog near');
+    // near = where the fog starts, far = where it is total; widening the gap or
+    // pushing both out thins the fog, closing it thickens it.
+    R(fog, e, 'fogNear', 1, 200, 1, 'fog near');
     R(fog, e, 'fogFar', 10, 400, 1, 'fog far');
     R(fog, e, 'dustAmount', 0, 3, 0.01, 'floating dust');
 
     const floor = folder.addFolder('Stage floor');
+    floor.add(e, 'floorTexture').name('stone tile');
+    R(floor, e, 'floorTextureScale', 0.5, 24, 0.1, 'tile size (m)');
+    R(floor, e, 'floorNormalScale', 0, 3, 0.01, 'relief strength');
+    R(floor, e, 'floorTexTint', 0, 1, 0.01, 'tint toward floor');
     floor.addColor(e, 'floorColor').name('floor colour');
     floor.addColor(e, 'floorTint').name('floor tint');
     R(floor, e, 'floorRoughness', 0.05, 1, 0.01, 'roughness');

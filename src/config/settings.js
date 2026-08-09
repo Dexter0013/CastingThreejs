@@ -1749,9 +1749,13 @@ export const settings = {
     rimElevation: 0.35,
     envIntensity: 0.32,
     backgroundColor: '#121820',
+    // Fog is pulled well back so it only dissolves the far edge of the floor into
+    // the backdrop rather than sitting on top of the action. Toggle and range are
+    // both live in the editor (Environment → Backdrop, fog & dust).
+    fogEnabled: true,
     fogColor: '#121820',
-    fogNear: 10,
-    fogFar: 38,
+    fogNear: 26,
+    fogFar: 135,
     shadowBias: -0.0008,
     shadowRadius: 2.2,
     floorColor: '#191f27',
@@ -1759,6 +1763,14 @@ export const settings = {
     floorRoughness: 0.88,
     floorSheen: 0.34,
     floorPool: 0.8,
+    // The stone tiling that dresses the floor: ambientCG Rock030 (CC0), a rough
+    // natural rock, living in public/textures/cathedral. `floorTextureScale` is metres of floor
+    // one tile covers; `floorTexTint` grades the grey stone toward `floorTint` so
+    // it sits inside the cool stage palette instead of fighting it.
+    floorTexture: false,
+    floorTextureScale: 12.0,
+    floorNormalScale: 0.85,
+    floorTexTint: 0.4,
     dustAmount: 0.85,
     contactShadow: 0.55
   },

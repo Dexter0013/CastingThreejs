@@ -52,11 +52,14 @@ export class Environment {
     // Flat dark backdrop, kept in a Color we own so the editor can drive it.
     this._bgColor = getColor(settings.environment.backgroundColor).clone();
     this.scene.background = this._bgColor;
-    this.scene.fog = new Fog(
+    // Kept in a Fog we own so the editor can drive its colour and range, and so
+    // it can be switched off entirely by detaching it from the scene.
+    this._fog = new Fog(
       getColor(settings.environment.fogColor).clone(),
       settings.environment.fogNear,
       settings.environment.fogFar
     );
+    this.scene.fog = settings.environment.fogEnabled ? this._fog : null;
 
     this.ambient = new AmbientLight(
       getColor(settings.environment.ambientColor).clone(),
@@ -197,10 +200,12 @@ export class Environment {
 
     this._bgColor.copy(getColor(env.backgroundColor));
 
-    const fog = this.scene.fog;
-    fog.color.copy(getColor(env.fogColor));
-    fog.near = env.fogNear;
-    fog.far = env.fogFar;
+    // Attaching / detaching the fog flips the FOG shader define, so the switch
+    // costs one recompile — fine for an editor toggle, and free while it stays on.
+    this.scene.fog = env.fogEnabled ? this._fog : null;
+    this._fog.color.copy(getColor(env.fogColor));
+    this._fog.near = env.fogNear;
+    this._fog.far = env.fogFar;
   }
 
   dispose() {
