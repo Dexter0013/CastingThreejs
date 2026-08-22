@@ -382,12 +382,6 @@ export class App {
     this.loading.hide();
 
     this.start();
-
-    // Spawn initial sparring enemies so combat & health drops are immediately testable
-    setTimeout(() => {
-      this.enemies.spawnRandom(this.character.position, 8, 14);
-      this.enemies.spawnRandom(this.character.position, 10, 16);
-    }, 300);
   }
 
   start() {
