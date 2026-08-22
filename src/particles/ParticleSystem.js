@@ -135,6 +135,7 @@ export class ParticleSystem {
         uSpeedScale: { value: 1 },
         uSizeScale: { value: 1 },
         uLifeScale: { value: 1 },
+        uDensityScale: { value: 1 },
         uEndSize: { value: 0.4 },
         uSizeIn: { value: 0.08 },
         uFadeIn: { value: 0.08 },
@@ -376,6 +377,7 @@ const PARTICLE_VERTEX = /* glsl */ `
   uniform float uSpeedScale;
   uniform float uSizeScale;
   uniform float uLifeScale;
+  uniform float uDensityScale;
   uniform float uEndSize;
   uniform float uSizeIn;
   uniform float uStretch;
@@ -452,9 +454,11 @@ const PARTICLE_VERTEX = /* glsl */ `
     vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
     vViewZ = mvPosition.z;
 
-    // Size over lifetime.
+    // Size over lifetime with n log(n) decay curve, accelerated by density.
     float grow = smoothstep(0.0, max(uSizeIn, 1e-3), t);
-    float size = aSize * uSizeScale * mix(1.0, uEndSize, t) * grow;
+    float decayRate = 1.8 * max(1.0, uDensityScale);
+    float nlogDecaySize = clamp(1.0 - t * log(t * 2.71828 + 1.0) * decayRate, 0.0, 1.0);
+    float size = aSize * uSizeScale * mix(1.0, uEndSize, t) * grow * nlogDecaySize;
 
     vec2 corner = position.xy * size;
 
@@ -494,6 +498,7 @@ const PARTICLE_FRAGMENT = /* glsl */ `
   uniform float uCameraNear;
   uniform float uCameraFar;
   uniform float uGlobalGlow;
+  uniform float uDensityScale;
 
   varying vec2  vUv;
   varying float vT;
@@ -543,9 +548,12 @@ const PARTICLE_FRAGMENT = /* glsl */ `
     float mask = shapeMask(vUv);
     if (mask <= 0.004) discard;
 
-    // Alpha over lifetime.
+    // Alpha over lifetime with n log(n) decay curve, accelerated by particle density.
+    float fadeDecayRate = 2.2 * max(1.0, uDensityScale);
+    float nlogDecayFade = clamp(1.0 - vT * log(vT * 2.71828 + 1.0) * fadeDecayRate, 0.0, 1.0);
     float fade = smoothstep(0.0, max(uFadeIn, 1e-3), vT) *
-                 (1.0 - smoothstep(clamp(uFadeOut, 0.0, 0.999), 1.0, vT));
+                 (1.0 - smoothstep(clamp(uFadeOut, 0.0, 0.999), 1.0, vT)) *
+                 nlogDecayFade;
 
     float alpha = mask * fade * uOpacity;
 

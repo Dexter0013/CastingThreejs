@@ -15,7 +15,7 @@ import { disposeObject } from '../utils/dispose.js';
 
 const CHARACTER_URL = './models/Idle.fbx';
 /** This export carries no material, so the skin ships beside it as a file. */
-const CHARACTER_TEXTURE_URL = './models/diffuse.png';
+const CHARACTER_TEXTURE_URL = './models/diffuse.webp';
 /** One file per entry in `CAST_ANIMATIONS`; only their clips are kept. */
 const castUrl = (name) => `./models/${name}.fbx`;
 /** Mixamo exports in centimetres. */
@@ -347,11 +347,16 @@ export class CharacterController {
     if (this._lunge > 0) {
       this._lunge = Math.max(0, this._lunge - c.castSettle * dt);
     }
-    // A short overshoot at the front of the envelope reads as a snap rather than
-    // a slow bow.
+    // A short overshoot at the front of the envelope reads as a snap rather than a slow bow.
     const envelope = this._lunge * this._lunge * (1 + 0.35 * Math.sin(this._lunge * Math.PI));
-    this.tilt.quaternion.setFromAxisAngle(this._rightAxis, envelope * c.castLean);
-    this.tilt.position.copy(this.forwardAxis).multiplyScalar(-envelope * c.castRecoil);
+
+    // Smooth, low-frequency cinematic torso rumble & ground roll when launching spells
+    const rumbleTime = (1 - this._lunge) * 12.0;
+    const rumbleJitter = this._lunge > 0 ? Math.sin(rumbleTime) * 0.025 * this._lunge : 0;
+    const rumblePitch = this._lunge > 0 ? Math.cos(rumbleTime * 0.8) * 0.02 * this._lunge : 0;
+
+    this.tilt.quaternion.setFromAxisAngle(this._rightAxis, envelope * c.castLean + rumblePitch);
+    this.tilt.position.copy(this.forwardAxis).multiplyScalar(-envelope * c.castRecoil + rumbleJitter);
   }
 
   /** Put the character back on the floor, upright and facing where it was. */

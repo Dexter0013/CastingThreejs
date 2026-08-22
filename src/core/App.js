@@ -28,7 +28,6 @@ import { AbilityManager } from '../abilities/AbilityManager.js';
 import { PostProcessing } from '../postprocessing/PostProcessing.js';
 
 import { HUD, LoadingScreen } from '../ui/HUD.js';
-import { Editor } from '../ui/Editor.js';
 
 import { settings, ELEMENTS } from '../config/settings.js';
 
@@ -59,6 +58,9 @@ export class App {
      * spending one slot never locks the other out.
      */
     this.cooldowns = new Map(ELEMENTS.map((element) => [element, 0]));
+
+    this._fpsSamples = [];
+    this._autoScaled = false;
 
     /* ---- core ---- */
     this.renderer = new Renderer(canvas);
@@ -113,10 +115,7 @@ export class App {
     /* ---- UI ---- */
     this.loading = new LoadingScreen();
     this.hud = new HUD(document.getElementById('hud'));
-    this.editor = new Editor({
-      onClear: () => this.clearEffects(),
-      onToast: (message) => this.hud.showToast(message)
-    });
+    this.editor = null;
 
     this._bindEvents();
     this.selectAbility(ELEMENTS[0], { silent: true });
@@ -151,6 +150,17 @@ export class App {
     this.hud.onAbility = (element) => this.armAbility(element);
   }
 
+  async toggleEditor() {
+    if (!this.editor) {
+      const { Editor } = await import('../ui/Editor.js');
+      this.editor = new Editor({
+        onClear: () => this.clearEffects(),
+        onToast: (message) => this.hud.showToast(message)
+      });
+    }
+    this.editor.toggle();
+  }
+
   _handleAction(action, slot) {
     switch (action) {
       case 'ability': {
@@ -168,7 +178,7 @@ export class App {
         this.hud.toggleHelp();
         break;
       case 'toggleEditor':
-        this.editor.toggle();
+        this.toggleEditor();
         break;
       case 'clear':
         this.clearEffects();
@@ -217,6 +227,12 @@ export class App {
     this.character.setFacing(this.aim.facing);
     this.character.playCast(settings[element].castAnim);
     this.character.castLunge();
+
+    // Smooth cinematic sub-bass ground rumble on cast release
+    this.shake.add(0.45, 0.95, 9.5);
+
+    // Recentre to default third-person distance 2.5 s after the cast fires.
+    this.rig.recentre(2.5);
   }
 
   clearEffects() {
@@ -281,6 +297,20 @@ export class App {
     const dt = this.paused ? 0 : raw * settings.global.timeScale;
     this.elapsed += dt;
 
+    if (raw > 0) {
+      this._fpsSamples.push(1 / raw);
+      if (this._fpsSamples.length > 60) this._fpsSamples.shift();
+      if (!this._autoScaled && this._fpsSamples.length >= 60) {
+        const avgFps = this._fpsSamples.reduce((a, b) => a + b, 0) / 60;
+        if (avgFps < 45) {
+          settings.global.particleCount = 0.5;
+          settings.global.particleLifetime = 0.25;
+          this._autoScaled = true;
+          this.hud.showToast('FPS low — auto-scaled particle budget');
+        }
+      }
+    }
+
     /* ---- shared uniforms ---- */
     frame.uTime.value = this.elapsed;
     frame.uDelta.value = dt;
@@ -313,7 +343,7 @@ export class App {
     this.dust.update(this.elapsed, this.character.position);
 
     this.abilities.update(dt);
-    this.particles.flush();
+    this.particles.flush(this.elapsed);
     this.decals.update(dt);
     this.fissures.update(dt);
     this.bursts.update(dt);
@@ -367,7 +397,7 @@ export class App {
     this.contactShadows.dispose();
     this.post.dispose();
     this.environment.dispose();
-    this.editor.dispose();
+    this.editor?.dispose();
     this.rig.dispose();
     this.renderer.dispose();
   }

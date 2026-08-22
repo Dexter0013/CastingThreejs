@@ -568,8 +568,13 @@ export class FissureSystem {
   }
 
   update(dt) {
+    // n log(n) density-accelerated decay: more concurrent fissures → faster drain to reduce draw calls
+    const n = this.active.length;
+    const nlogMult = n > 1 ? Math.max(1.0, (n * Math.log(n + 1.0)) / 0.693) : 1.0;
+    const effectiveDt = dt * nlogMult;
+
     for (let i = this.active.length - 1; i >= 0; i--) {
-      if (!this.active[i].update(dt)) {
+      if (!this.active[i].update(effectiveDt)) {
         this.pool.release(this.active.splice(i, 1)[0]);
       }
     }

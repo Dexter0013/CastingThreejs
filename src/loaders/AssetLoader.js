@@ -1,5 +1,6 @@
 import { LoadingManager, TextureLoader } from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 
 /**
@@ -30,6 +31,7 @@ export class AssetLoader {
     );
 
     this.fbx = new FBXLoader(this.manager);
+    this.gltf = new GLTFLoader(this.manager);
     this.hdr = new HDRLoader(this.manager);
     this.texture = new TextureLoader(this.manager);
 
@@ -74,6 +76,20 @@ export class AssetLoader {
   loadFBX(url) {
     return new Promise((resolve, reject) => {
       this.fbx.load(
+        encodeURI(url),
+        resolve,
+        (event) => {
+          if (event.lengthComputable) this._onProgress?.(event.loaded / event.total, url);
+        },
+        reject
+      );
+    });
+  }
+
+  /** @returns {Promise<import('three/addons/loaders/GLTFLoader.js').GLTF>} */
+  loadGLTF(url) {
+    return new Promise((resolve, reject) => {
+      this.gltf.load(
         encodeURI(url),
         resolve,
         (event) => {

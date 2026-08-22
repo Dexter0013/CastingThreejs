@@ -44,7 +44,7 @@ export class Renderer {
 
   /** Cap the pixel ratio: 4K + heavy transparency is not worth the fill rate. */
   targetPixelRatio() {
-    return Math.min(window.devicePixelRatio || 1, 1.75);
+    return Math.min(window.devicePixelRatio || 1, 1.5);
   }
 
   get domElement() {

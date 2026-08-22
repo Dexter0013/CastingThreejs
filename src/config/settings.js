@@ -54,7 +54,7 @@ export const settings = {
     turbulence: 1.0,
     randomness: 1.0, // per-instance / per-particle jitter multiplier
     particleCount: 1.0,
-    particleLifetime: 1.0,
+    particleLifetime: 0.35, // short particle lifespan so particles destroy quickly and reduce GPU load
     particleSpeed: 1.0,
     particleSize: 1.0,
     emissionRate: 1.0,
@@ -64,7 +64,7 @@ export const settings = {
     fresnel: 1.0,
     opacity: 1.0,
     animationSpeed: 1.0, // character animation playback rate
-    cameraShake: 1.0,
+    cameraShake: 1.5,
     explosionIntensity: 1.0
   },
 
@@ -217,8 +217,8 @@ export const settings = {
     /* --- how the body sells the cast --- */
     turnToAim: true, // face the arrow while aiming
     turnRate: 0.0002, // fraction of the heading gap left after 1s (lower = snappier)
-    castLean: 0.34, // radians the torso pitches forward on release
-    castRecoil: 0.16, // metres the body is shoved back
+    castLean: 0.42, // radians the torso pitches forward on release
+    castRecoil: 0.24, // metres the body is shoved back
     castSettle: 2.6 // seconds⁻¹ the lunge decays at
   },
 
@@ -1714,15 +1714,15 @@ export const settings = {
   /* Camera rig                                                          */
   /* ------------------------------------------------------------------ */
   camera: {
-    distance: 11.5,
+    distance: 7.5,       // classic third-person over-the-shoulder distance
     minDistance: 3.5,
     maxDistance: 30,
     zoomSpeed: 1.0,
     zoomDamping: 0.002,
     minPolar: 0.35,
     maxPolar: 1.32,
-    fov: 46,
-    targetHeight: 1.35,
+    fov: 58,             // wider FOV for third-person peripheral immersion
+    targetHeight: 1.6,   // frame upper body / chest height
     damping: 0.06,
     autoFrame: 0.35 // how strongly the rig drifts toward an active cast
   },

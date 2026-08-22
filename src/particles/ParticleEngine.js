@@ -30,9 +30,20 @@ export class ParticleEngine {
     return system;
   }
 
-  /** Upload the frame's spawn data. Called once, after all abilities update. */
-  flush() {
-    for (const system of this.systems.values()) system.flush();
+  /** Upload the frame's spawn data and dynamically scale decay rates with particle density. */
+  flush(time = 0) {
+    let totalLive = 0;
+    for (const system of this.systems.values()) {
+      system.flush();
+      totalLive += system.countLive(time);
+    }
+    // Dynamic density scaling: when active particle count is high (> 200), acceleration scales up to 3.5x
+    const densityScale = 1.0 + Math.min(2.5, Math.max(0.0, (totalLive - 200) / 200.0));
+    for (const system of this.systems.values()) {
+      if (system.uniforms.uDensityScale) {
+        system.uniforms.uDensityScale.value = densityScale;
+      }
+    }
   }
 
   /**

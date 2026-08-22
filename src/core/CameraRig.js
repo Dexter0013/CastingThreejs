@@ -16,6 +16,8 @@ const _desiredTarget = new Vector3();
  *   writing that same setting, which means zoom keeps working while the rig is
  *   following an ability, and the editor slider stays the single source of truth.
  * - The rig gently drifts its look-at point toward whatever ability is casting.
+ * - After a cast or after the user stops orbiting / zooming, the rig smoothly
+ *   re-centres to the default third-person distance via an auto-recentre timer.
  */
 export class CameraRig {
   constructor(domElement) {
@@ -25,14 +27,14 @@ export class CameraRig {
       0.1,
       400
     );
-    this.camera.position.set(-6.5, 6.0, 9.5);
+    this.camera.position.set(-3.5, 4.0, 6.0); // third-person spawn position
     this.camera.layers.enable(LAYER.VFX);
 
     this.controls = new OrbitControls(this.camera, domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.075;
     this.controls.enablePan = false;
-    this.controls.enableZoom = false; // the wheel drives `settings.camera.distance` instead
+    this.controls.enableZoom = false; // the wheel drives settings.camera.distance instead
     this.controls.minPolarAngle = settings.camera.minPolar;
     this.controls.maxPolarAngle = settings.camera.maxPolar;
     this.controls.rotateSpeed = 0.65;
@@ -50,9 +52,24 @@ export class CameraRig {
     this.controls.target.set(0, settings.camera.targetHeight, 0);
     this.controls.update();
 
-    // Actual distance, eased toward `settings.camera.distance` so a wheel flick
+    // Actual distance, eased toward settings.camera.distance so a wheel flick
     // glides instead of snapping.
     this.distance = settings.camera.distance;
+
+    // Auto-recentre state - default third-person distance is 7.5.
+    this._recentreTimer = 0;   // seconds remaining before the glide home starts
+    this._isOrbiting = false;  // true while the user holds right-drag
+
+    // While the user drags, suppress any pending recentre.
+    // When they let go, start a 2.5 s countdown.
+    this.controls.addEventListener('start', () => {
+      this._isOrbiting = true;
+      this._recentreTimer = 0;
+    });
+    this.controls.addEventListener('end', () => {
+      this._isOrbiting = false;
+      this._recentreTimer = 2.5;
+    });
 
     this.domElement = domElement;
     this._onWheel = this._onWheel.bind(this);
@@ -73,6 +90,9 @@ export class CameraRig {
       cam.minDistance,
       cam.maxDistance
     );
+
+    // Zoom counts as manual movement - restart the recentre countdown.
+    this._recentreTimer = 2.5;
   }
 
   /** Point the rig should orbit around (character position). */
@@ -80,10 +100,19 @@ export class CameraRig {
     this.anchor.set(x, y, z);
   }
 
-  /** Nudge the look-at point toward an ability. `weight` 0..1, decays on its own. */
+  /** Nudge the look-at point toward an ability. weight 0..1, decays on its own. */
   lookAt(point, weight = 1) {
     this.focus.copy(point);
     this.focusWeight = Math.max(this.focusWeight, weight);
+  }
+
+  /**
+   * Arm a recentre to default third-person distance after delay seconds.
+   * Call this from App after every spell cast.
+   * @param {number} [delay=2.5] seconds before the glide home starts
+   */
+  recentre(delay = 2.5) {
+    this._recentreTimer = delay;
   }
 
   update(dt) {
@@ -111,6 +140,16 @@ export class CameraRig {
     this.focusWeight = damp(this.focusWeight, 0, 0.08, dt);
 
     this.controls.update();
+
+    // Auto-recentre: count down the timer, then write the default distance back
+    // into settings so the existing damp() below glides the camera home smoothly.
+    if (!this._isOrbiting && this._recentreTimer > 0) {
+      this._recentreTimer -= dt;
+      if (this._recentreTimer <= 0) {
+        this._recentreTimer = 0;
+        cam.distance = clamp(7.5, cam.minDistance, cam.maxDistance);
+      }
+    }
 
     // Enforce the orbit distance (zoom and the editor slider both land here).
     this.distance = damp(this.distance, cam.distance, cam.zoomDamping, dt);

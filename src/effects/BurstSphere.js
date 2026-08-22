@@ -273,9 +273,14 @@ export class BurstSystem {
   }
 
   update(dt) {
+    // n log(n) density-accelerated decay: more concurrent bursts → faster age drain to reduce draw calls
+    const n = this.active.length;
+    const nlogMult = n > 1 ? Math.max(1.0, (n * Math.log(n + 1.0)) / 0.693) : 1.0;
+    const effectiveDt = dt * nlogMult;
+
     for (let i = this.active.length - 1; i >= 0; i--) {
       const burst = this.active[i];
-      burst.age += dt;
+      burst.age += effectiveDt;
       const t = Math.min(1, burst.age / burst.life);
       burst.material.uniforms.uAge.value = t;
 

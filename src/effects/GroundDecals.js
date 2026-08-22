@@ -356,9 +356,14 @@ export class DecalSystem {
   }
 
   update(dt) {
+    // n log(n) density-accelerated decay: more concurrent decals → faster age drain to reduce draw calls & overdraw
+    const n = this.active.length;
+    const nlogMult = n > 1 ? Math.max(1.0, (n * Math.log(n + 1.0)) / 0.693) : 1.0;
+    const effectiveDt = dt * nlogMult;
+
     for (let i = this.active.length - 1; i >= 0; i--) {
       const decal = this.active[i];
-      decal.age += dt;
+      decal.age += effectiveDt;
       const t = decal.age / decal.life;
       decal.material.uniforms.uAge.value = t;
 
