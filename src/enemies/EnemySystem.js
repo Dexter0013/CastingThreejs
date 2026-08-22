@@ -1,10 +1,23 @@
 // src/enemies/EnemySystem.js
-import { Group, Vector3 } from 'three';
+import { Group, Vector3, SphereGeometry, MeshBasicMaterial, Mesh } from 'three';
 import { ObjectPool } from '../utils/ObjectPool.js';
-import { Enemy } from './Enemy.js';
+import { Enemy, ENEMY_ARCHETYPES } from './Enemy.js';
+import { AI_CONFIG } from './EnemyAI.js';
+import { LAYER } from '../core/Layers.js';
 
 /** Maximum simultaneous enemies; oldest is removed when cap is hit */
-const MAX_ACTIVE_ENEMIES = 8;
+const MAX_ACTIVE_ENEMIES = 10;
+const MAX_DANGER_ZONES = 12;
+const ALL_TYPES = Object.keys(ENEMY_ARCHETYPES);
+
+// Weighted spawn pool — more ground entries = ground enemies spawn more often.
+// brute:2, runner:3, drone:1, specter:1  →  flying ~25% of spawns
+const SPAWN_POOL = [
+  'brute', 'brute',
+  'runner', 'runner', 'runner',
+  'drone',
+  'specter'
+];
 
 export class EnemySystem {
   constructor(scene) {
@@ -13,38 +26,93 @@ export class EnemySystem {
     this.group.name = 'Enemies';
     scene.add(this.group);
 
+    // Enemy projectile system
+    this.projectilesGroup = new Group();
+    this.projectilesGroup.name = 'EnemyProjectiles';
+    scene.add(this.projectilesGroup);
+    this.activeProjectiles = [];
+
+    this.projGeo = new SphereGeometry(0.35, 8, 8);
+    this.projMatDrone = new MeshBasicMaterial({ color: 0x34d399 });
+    this.projMatSpecter = new MeshBasicMaterial({ color: 0xc084fc });
+
     this.active = [];
-    this.pools = new Map(); // we only have one type now, but keep map for future extensions
-    // Pre‑create a pool for the simple box enemy
-    const pool = new ObjectPool(
-      () => new Enemy(),
-      (enemy) => {
-        enemy.visible = false;
-        this.group.remove(enemy);
-        enemy.reset();
-      }
-    );
-    this.pools.set('box', pool);
+    this.pools = new Map();
+
+    // Create pools for all enemy archetypes
+    for (const type of ALL_TYPES) {
+      const pool = new ObjectPool(
+        () => new Enemy(type),
+        (enemy) => {
+          enemy.visible = false;
+          this.group.remove(enemy);
+          enemy.reset();
+        }
+      );
+      this.pools.set(type, pool);
+    }
 
     this.autoSpawn = false;
-    this.autoSpawnInterval = 4.0;
-    this.autoSpawnTimer = 2.0;
+    this.autoSpawnInterval = 3.5;
+    this.autoSpawnTimer = 1.5;
+
+    // Spatial Kill-Zone Memory (Heatmap of danger areas)
+    this.dangerZones = [];
   }
 
-  /** Acquire a pool (currently only 'box') */
-  _poolFor(type = 'box') {
-    return this.pools.get(type);
+  /** Record a death or heavy blast location to spatial AI memory */
+  addDangerZone(position) {
+    if (this.dangerZones.length >= MAX_DANGER_ZONES) {
+      this.dangerZones.shift();
+    }
+    this.dangerZones.push({
+      position: position.clone().setY(0),
+      age: 0,
+      life: AI_CONFIG.dangerDecayTime
+    });
   }
 
-  /** Spawn an enemy at a given world position */
-  spawn(position = new Vector3()) {
-    const pool = this._poolFor();
+  /** Fire an energy bolt from flying enemy towards player */
+  fireProjectile(fromPos, targetPos, type = 'drone', speed = 16, damage = 16) {
+    const mat = type === 'specter' ? this.projMatSpecter : this.projMatDrone;
+    const mesh = new Mesh(this.projGeo, mat);
+    mesh.layers.set(LAYER.WORLD);
+    mesh.position.copy(fromPos);
+
+    const dir = new Vector3().copy(targetPos).setY(0.9).sub(fromPos).normalize();
+    const velocity = dir.multiplyScalar(speed);
+
+    this.projectilesGroup.add(mesh);
+    this.activeProjectiles.push({
+      mesh,
+      velocity,
+      damage,
+      life: 2.5
+    });
+  }
+
+  /** Acquire a pool for a given archetype */
+  _poolFor(type = 'runner') {
+    return this.pools.get(type) || this.pools.get('runner');
+  }
+
+  /**
+   * Spawn an enemy of a specific archetype at a given world position
+   * @param {THREE.Vector3} position
+   * @param {string} [type='runner'] 'brute' | 'runner' | 'drone' | 'specter'
+   */
+  spawn(position = new Vector3(), type = 'runner') {
+    const pool = this._poolFor(type);
     if (this.active.length >= MAX_ACTIVE_ENEMIES) {
       const oldest = this.active.shift();
-      pool.release(oldest);
+      this._poolFor(oldest.type).release(oldest);
     }
+
     const enemy = pool.acquire();
-    enemy.position.copy(position);
+    const archetype = ENEMY_ARCHETYPES[type] || ENEMY_ARCHETYPES.runner;
+    const initialY = archetype.category === 'flying' ? archetype.altitude : 0;
+
+    enemy.position.set(position.x, initialY, position.z);
     enemy.visible = true;
     if (enemy.parent !== this.group) {
       this.group.add(enemy);
@@ -55,11 +123,9 @@ export class EnemySystem {
 
   /**
    * Spawns an enemy at a random 360° angle around the player at 15m+ distance.
-   * @param {THREE.Vector3} playerPos
-   * @param {number} minDistance minimum distance in meters (default 15)
-   * @param {number} maxDistance maximum distance in meters (default 24)
    */
-  spawnRandom(playerPos = new Vector3(), minDistance = 15, maxDistance = 24) {
+  spawnRandom(playerPos = new Vector3(), minDistance = 15, maxDistance = 24, type = null) {
+    const chosenType = type || SPAWN_POOL[Math.floor(Math.random() * SPAWN_POOL.length)];
     const angle = Math.random() * Math.PI * 2;
     const distance = minDistance + Math.random() * (maxDistance - minDistance);
     const spawnPos = new Vector3(
@@ -67,8 +133,8 @@ export class EnemySystem {
       0,
       playerPos.z + Math.cos(angle) * distance
     );
-    const enemy = this.spawn(spawnPos);
-    return { enemy, distance, position: spawnPos };
+    const enemy = this.spawn(spawnPos, chosenType);
+    return { enemy, distance, position: spawnPos, type: chosenType, archetype: enemy.archetype };
   }
 
   /** Toggle auto spawning */
@@ -78,8 +144,8 @@ export class EnemySystem {
     return this.autoSpawn;
   }
 
-  /** Update all active enemies, handle collisions and auto-spawner */
-  update(dt, playerPos, camera = null) {
+  /** Update all active enemies, handle attacks, projectiles, and collisions */
+  update(dt, playerPos, camera = null, aim = null, abilities = null, onPlayerDamage = null) {
     if (this.autoSpawn && playerPos && this.active.length < MAX_ACTIVE_ENEMIES) {
       this.autoSpawnTimer -= dt;
       if (this.autoSpawnTimer <= 0) {
@@ -88,20 +154,91 @@ export class EnemySystem {
       }
     }
 
-    // 1. Update individual enemies
-    for (let i = this.active.length - 1; i >= 0; i--) {
-      const enemy = this.active[i];
-      enemy.update(dt, playerPos, camera);
-      if (enemy.isDead || enemy.health <= 0) {
-        this.active.splice(i, 1);
-        this._poolFor().release(enemy);
+    // 1. Age and decay spatial kill-zone memory
+    for (let i = this.dangerZones.length - 1; i >= 0; i--) {
+      this.dangerZones[i].age += dt;
+      if (this.dangerZones[i].age >= this.dangerZones[i].life) {
+        this.dangerZones.splice(i, 1);
       }
     }
 
-    // 2. Enemy vs Player collision (push enemy out)
+    const aiContext = {
+      aim,
+      abilities,
+      dangerZones: this.dangerZones
+    };
+
+    // 2. Update individual enemies & process enemy offensive attacks
+    for (let i = this.active.length - 1; i >= 0; i--) {
+      const enemy = this.active[i];
+      enemy.update(dt, playerPos, camera, aiContext);
+
+      if (enemy.isDead || enemy.health <= 0) {
+        this.active.splice(i, 1);
+        this._poolFor(enemy.type).release(enemy);
+        continue;
+      }
+
+      // Decrement attack cooldown
+      if (enemy.attackCooldownTimer > 0) {
+        enemy.attackCooldownTimer -= dt;
+      }
+
+      // Offensive Attack Processing
+      if (playerPos && onPlayerDamage && enemy.attackCooldownTimer <= 0) {
+        const arch = enemy.archetype;
+        const dX = enemy.position.x - playerPos.x;
+        const dZ = enemy.position.z - playerPos.z;
+        const flatDist = Math.sqrt(dX * dX + dZ * dZ);
+
+        if (!enemy.isFlying && flatDist <= (arch.attackRange || 3.6)) {
+          // Ground melee attack / slam
+          enemy.attackCooldownTimer = arch.attackCooldown || 1.0;
+          // Attack lunge toward player
+          const lungeDir = new Vector3().subVectors(playerPos, enemy.position).setY(0).normalize();
+          enemy.velocity.addScaledVector(lungeDir, 3.2);
+          onPlayerDamage(arch.attackDamage || 20, enemy.position, arch.name);
+        } else if (enemy.isFlying) {
+          const dist3D = enemy.position.distanceTo(playerPos);
+          if (dist3D <= (arch.attackRange || 24.0)) {
+            // Aerial projectile shot
+            enemy.attackCooldownTimer = arch.attackCooldown || 1.6;
+            this.fireProjectile(enemy.position, playerPos, enemy.type, arch.projSpeed || 18, arch.attackDamage || 20);
+          }
+        }
+      }
+    }
+
+    // 3. Update active enemy projectiles
+    const playerTargetCenter = playerPos ? new Vector3(playerPos.x, 0.9, playerPos.z) : null;
+
+    for (let i = this.activeProjectiles.length - 1; i >= 0; i--) {
+      const proj = this.activeProjectiles[i];
+      proj.mesh.position.addScaledVector(proj.velocity, dt);
+      proj.life -= dt;
+
+      // Check collision with player (1.6m radius capsule)
+      if (playerTargetCenter && proj.mesh.position.distanceTo(playerTargetCenter) < 1.6) {
+        if (onPlayerDamage) {
+          onPlayerDamage(proj.damage, proj.mesh.position, 'Energy Bolt');
+        }
+        this.projectilesGroup.remove(proj.mesh);
+        this.activeProjectiles.splice(i, 1);
+        continue;
+      }
+
+      // Remove expired or fallen into void
+      if (proj.life <= 0 || proj.mesh.position.y < -0.8) {
+        this.projectilesGroup.remove(proj.mesh);
+        this.activeProjectiles.splice(i, 1);
+      }
+    }
+
+    // 4. Enemy vs Player collision (push enemy out)
     if (playerPos) {
       const playerRadius = 0.65;
       for (const enemy of this.active) {
+        if (enemy.isFlying) continue; // Flying enemies don't ground-collide
         const dist = enemy.position.distanceTo(playerPos);
         const minDist = enemy.radius + playerRadius;
         if (dist < minDist && dist > 0.001) {
@@ -112,7 +249,7 @@ export class EnemySystem {
       }
     }
 
-    // 3. Enemy vs Enemy soft separation
+    // 5. Enemy vs Enemy soft separation
     for (let i = 0; i < this.active.length; i++) {
       const eA = this.active[i];
       for (let j = i + 1; j < this.active.length; j++) {
@@ -273,21 +410,22 @@ export class EnemySystem {
   }
 
   _onEnemyDefeated(enemy, index, ctx) {
-    ctx.bursts?.spawn(0, enemy.position.clone().setY(1.0), {
+    this.addDangerZone(enemy.position);
+    ctx.bursts?.spawn(0, enemy.position.clone().setY(enemy.isFlying ? enemy.position.y : 1.0), {
       radius: 0.7,
       endRadius: 4.5,
       life: 0.85,
       intensity: 4.5
     });
     ctx.shake?.add(0.45, 0.9, 15);
-    ctx.hud?.showToast('💥 Enemy Defeated!');
+    ctx.hud?.showToast(`💥 ${enemy.archetype?.name || 'Enemy'} Defeated!`);
     this.active.splice(index, 1);
-    this._poolFor().release(enemy);
+    this._poolFor(enemy.type).release(enemy);
   }
 
   clear() {
     for (const e of this.active) {
-      this._poolFor().release(e);
+      this._poolFor(e.type).release(e);
     }
     this.active.length = 0;
   }

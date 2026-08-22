@@ -116,6 +116,10 @@ export class InputManager extends EventEmitter {
       case 'KeyT':
         this.emit('action', 'toggleAutoSpawn');
         break;
+      case 'Space':
+      case 'Enter':
+        this.emit('action', 'restart');
+        break;
       default:
         if (event.key?.toLowerCase() === 'z') {
           this.emit('action', 'spawnEnemy');

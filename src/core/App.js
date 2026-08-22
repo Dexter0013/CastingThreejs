@@ -1,4 +1,4 @@
-import { Vector3, MathUtils } from 'three';
+import { Vector3, MathUtils, Color } from 'three';
 
 import { Renderer } from './Renderer.js';
 import { Time } from './Time.js';
@@ -119,10 +119,75 @@ export class App {
     this.hud = new HUD(document.getElementById('hud'));
     this.editor = null;
 
+    /* ---- Player Combat Stats ---- */
+    this.playerMaxHealth = 100;
+    this.playerHealth = 100;
+    this.isPlayerDead = false;
+    this.playerInvulnTimer = 0;
+    this.playerCombatTimer = 0;   // seconds since last hit — regen kicks in after 5s
+    this.respawnTimer = 0;
+
+    // Regen rates (HP per second)
+    this.REGEN_COMBAT   = 20.0; // slow trickle even while fighting
+    this.REGEN_PASSIVE  = 50.0; // fast recovery when out of combat
+    this.REGEN_DELAY    = 5.0;  // seconds after last hit to switch to fast regen
+
+    this.hud.setPlayerHealth(this.playerHealth, this.playerMaxHealth);
+
     this._bindEvents();
     this.selectAbility(ELEMENTS[0], { silent: true });
 
     this._focusPoint = new Vector3();
+  }
+
+  /** Damage the player when struck by enemy melee or projectile */
+  damagePlayer(amount, sourcePos = null, attackName = 'Attack') {
+    if (this.isPlayerDead || this.playerInvulnTimer > 0) return;
+
+    this.playerHealth = Math.max(0, this.playerHealth - amount);
+    this.playerInvulnTimer = 0.08; // 80ms damage grace period
+    this.playerCombatTimer = 0;    // reset out-of-combat regen delay
+
+    console.log(`[COMBAT] Hero took -${amount} damage from ${attackName}. Remaining HP: ${this.playerHealth}`);
+
+    // 1. Compute Knockback Vector away from attack source
+    const knockbackDir = new Vector3();
+    if (sourcePos) {
+      knockbackDir.subVectors(this.character.position, sourcePos).setY(0);
+      if (knockbackDir.lengthSq() < 1e-4) {
+        knockbackDir.set(Math.random() - 0.5, 0, Math.random() - 0.5);
+      }
+    } else {
+      knockbackDir.set(Math.random() - 0.5, 0, Math.random() - 0.5);
+    }
+    knockbackDir.normalize();
+
+    // Scale knockback force by damage amount
+    const knockForce = Math.min(8.5, 3.5 + amount * 0.16);
+    this.character.applyKnockback(knockbackDir, knockForce);
+
+    // 2. Spawn Impact Shockwave & Spark Burst on Character
+    this.bursts.spawn(0, this.character.position.clone().setY(1.0), {
+      radius: 0.25,
+      endRadius: 2.2,
+      life: 0.4,
+      intensity: 3.5
+    });
+
+    // 3. Screen Red Flash & Impact Rumble
+    this.flash.trigger(new Color(1.0, 0.12, 0.12), 0.85, 0.001);
+    this.shake.add(0.32, 0.7, 16);
+
+    this.hud.setPlayerHealth(this.playerHealth, this.playerMaxHealth);
+
+    if (this.playerHealth <= 0) {
+      this.isPlayerDead = true;
+      this.playerHealth = 0;
+      this.hud.setPlayerHealth(0, this.playerMaxHealth);
+      this.hud.showDefeatScreen(`Fell to ${attackName}`);
+    } else {
+      this.hud.showToast(`🩸 -${amount} HP (${attackName})`, 800);
+    }
   }
 
   /** The ability currently in the slot. */
@@ -141,17 +206,39 @@ export class App {
 
     this.input.on('pointer:move', (pointer) => this.aim.point(pointer));
     this.input.on('pointer:confirm', (pointer) => {
+      if (this.isPlayerDead) return;
       this.aim.point(pointer);
       this.aim.confirm();
     });
     this.input.on('action', (action, slot) => this._handleAction(action, slot));
 
-    this.aim.on('cast', (origin, direction, distance) => this._cast(origin, direction, distance));
+    this.aim.on('cast', (origin, direction, distance) => {
+      if (this.isPlayerDead) return;
+      this._cast(origin, direction, distance);
+    });
     this.aim.on('reject', () => this.hud.showToast('Too close — aim further out'));
 
-    this.hud.onAbility = (element) => this.armAbility(element);
+    this.hud.onAbility = (element) => {
+      if (!this.isPlayerDead) this.armAbility(element);
+    };
     this.hud.onSpawnEnemy = () => this._handleAction('spawnEnemy');
     this.hud.onToggleAutoSpawn = () => this._handleAction('toggleAutoSpawn');
+    this.hud.onRestart = () => this.restartGame();
+  }
+
+  /** Reset player and field after defeat */
+  restartGame() {
+    this.isPlayerDead = false;
+    this.playerHealth = this.playerMaxHealth;
+    this.playerInvulnTimer = 0.5;
+    this.playerCombatTimer = this.REGEN_DELAY; // start fully out-of-combat after restart
+    this.respawnTimer = 0;
+    this.hud.setPlayerHealth(this.playerHealth, this.playerMaxHealth);
+    this.hud.hideDefeatScreen();
+    this.enemies.clear();
+    this.clearEffects();
+    this.character.resetPlacement();
+    this.hud.showToast('⚔️ Battle Restarted — 100 HP Restored!', 1800);
   }
 
   async toggleEditor() {
@@ -168,16 +255,21 @@ export class App {
   _handleAction(action, slot) {
     switch (action) {
       case 'spawnEnemy': {
-        // Spawn at a random location 15m+ away around the player
+        // Spawn at a random location 15m+ away around the player (ground or flying archetype)
         const result = this.enemies.spawnRandom(this.character.position, 15, 24);
-        console.log('[Enemy] Random spawn at', result.position, `(${result.distance.toFixed(1)}m away)`);
-        this.hud.showToast(`Spawned Enemy (${result.distance.toFixed(1)}m away)`);
+        const icon = result.archetype?.category === 'flying' ? '🦅' : '👹';
+        console.log(`[Enemy] Spawned ${result.archetype?.name} at`, result.position, `(${result.distance.toFixed(1)}m away)`);
+        this.hud.showToast(`${icon} Spawned ${result.archetype?.name || 'Enemy'} (${result.distance.toFixed(0)}m away)`);
         break;
       }
       case 'toggleAutoSpawn': {
         const active = this.enemies.toggleAutoSpawn();
         this.hud.setAutoSpawn?.(active);
         this.hud.showToast(active ? 'Auto-Spawn Waves: ON (every 4s at 15m+)' : 'Auto-Spawn Waves: OFF');
+        break;
+      }
+      case 'restart': {
+        if (this.isPlayerDead) this.restartGame();
         break;
       }
       case 'ability': {
@@ -290,6 +382,12 @@ export class App {
     this.loading.hide();
 
     this.start();
+
+    // Spawn initial sparring enemies so combat & health drops are immediately testable
+    setTimeout(() => {
+      this.enemies.spawnRandom(this.character.position, 8, 14);
+      this.enemies.spawnRandom(this.character.position, 10, 16);
+    }, 300);
   }
 
   start() {
@@ -353,6 +451,20 @@ export class App {
     }
     this.character.update(dt);
 
+    /* ---- Player Health Lifecycle Tick ---- */
+    if (this.playerInvulnTimer > 0) {
+      this.playerInvulnTimer -= raw;
+    }
+
+    if (!this.isPlayerDead && this.playerHealth < this.playerMaxHealth) {
+      this.playerCombatTimer += raw;
+      const rate = this.playerCombatTimer >= this.REGEN_DELAY
+        ? this.REGEN_PASSIVE
+        : this.REGEN_COMBAT;
+      this.playerHealth = Math.min(this.playerMaxHealth, this.playerHealth + rate * raw);
+      this.hud.setPlayerHealth(this.playerHealth, this.playerMaxHealth);
+    }
+
     for (const [element, remaining] of this.cooldowns) {
       if (remaining > 0) this.cooldowns.set(element, Math.max(0, remaining - raw));
     }
@@ -366,7 +478,14 @@ export class App {
     this.fissures.update(dt);
     this.bursts.update(dt);
     this.lights.update(dt);
-    this.enemies.update(dt, this.character.position, this.camera);
+    this.enemies.update(
+      dt,
+      this.character.position,
+      this.camera,
+      this.aim,
+      this.abilities.active,
+      (dmg, src, name) => this.damagePlayer(dmg, src, name)
+    );
     this.enemies.checkCombat(this.abilities.active, {
       bursts: this.bursts,
       shake: this.shake,

@@ -73,6 +73,19 @@ export class HUD {
         <div class="hud__help-note">Paused still applies every editor change.</div>
       </div>
 
+      <!-- Player Vitality Bar (Top Center Header) -->
+      <div class="hud__player-bar">
+        <div class="hud__player-hp">
+          <div class="hud__hp-text">
+            <span class="hud__hp-label">HERO VITALITY</span>
+            <b id="player-hp-value">100 / 100</b>
+          </div>
+          <div class="hud__hp-track">
+            <div class="hud__hp-fill" id="player-hp-fill" style="width: 100%;"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="hud__abilities">
         ${ELEMENTS.map((element) => {
           const meta = ELEMENT_META[element];
@@ -88,6 +101,22 @@ export class HUD {
 
       <div class="hud__toast" data-toast></div>
       <div class="hud__paused" data-paused>Paused</div>
+
+      <!-- Defeat / Game Over Overlay -->
+      <div class="hud__defeat-screen" id="hud-defeat-screen">
+        <div class="hud__defeat-box">
+          <div class="hud__defeat-icon">💀</div>
+          <div class="hud__defeat-title">HERO DEFEATED</div>
+          <div class="hud__defeat-sub" id="hud-defeat-sub">You were slain in combat</div>
+          <button class="hud__restart-btn" id="hud-restart-btn">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M1 4v6h6M23 20v-6h-6" />
+              <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
+            </svg>
+            <span>Restart Battle</span>
+          </button>
+        </div>
+      </div>
     `;
 
     this.spawnBtn = root.querySelector('#hud-spawn-btn');
@@ -108,6 +137,20 @@ export class HUD {
       event.stopPropagation();
       this.onToggleAutoSpawn?.();
     });
+
+    this.defeatScreen = root.querySelector('#hud-defeat-screen');
+    this.defeatSub = root.querySelector('#hud-defeat-sub');
+    this.restartBtn = root.querySelector('#hud-restart-btn');
+    this.restartBtn?.addEventListener('pointerdown', (event) => {
+      event.stopPropagation();
+    });
+    this.restartBtn?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      this.onRestart?.();
+    });
+
+    this.hpFill = root.querySelector('#player-hp-fill');
+    this.hpText = root.querySelector('#player-hp-value');
 
     this.cards = new Map();
     for (const card of root.querySelectorAll('.ability-card')) {
@@ -136,6 +179,41 @@ export class HUD {
     }
     if (this.autoText) {
       this.autoText.textContent = active ? 'Waves: ON' : 'Auto Waves';
+    }
+  }
+
+  showDefeatScreen(subtitle = 'You were slain in combat') {
+    if (this.defeatSub) {
+      this.defeatSub.textContent = subtitle;
+    }
+    if (this.defeatScreen) {
+      this.defeatScreen.classList.add('is-active');
+    }
+  }
+
+  hideDefeatScreen() {
+    if (this.defeatScreen) {
+      this.defeatScreen.classList.remove('is-active');
+    }
+  }
+
+  setPlayerHealth(current, max) {
+    if (this.hpFill) {
+      const pct = Math.max(0, Math.min(1, current / Math.max(1, max))) * 100;
+      this.hpFill.style.width = `${pct}%`;
+      if (pct < 30) {
+        this.hpFill.style.background = 'linear-gradient(90deg, #b91c1c, #ef4444)';
+        this.hpFill.style.boxShadow = '0 0 16px rgba(239, 68, 68, 0.9)';
+      } else if (pct < 60) {
+        this.hpFill.style.background = 'linear-gradient(90deg, #c2410c, #f59e0b)';
+        this.hpFill.style.boxShadow = '0 0 16px rgba(245, 158, 11, 0.8)';
+      } else {
+        this.hpFill.style.background = 'linear-gradient(90deg, #059669, #10b981)';
+        this.hpFill.style.boxShadow = '0 0 16px rgba(16, 185, 129, 0.8)';
+      }
+    }
+    if (this.hpText) {
+      this.hpText.textContent = `${Math.ceil(Math.max(0, current))} / ${max}`;
     }
   }
 

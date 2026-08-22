@@ -70,6 +70,12 @@ export class CharacterController {
     /** 0..1 lunge envelope, decays on its own after `castLunge()`. */
     this._lunge = 0;
     this._rightAxis = new Vector3(1, 0, 0);
+
+    // Combat physics & damage reaction
+    this.velocity = new Vector3();
+    this.stagger = 0;
+    this.hitFlashTimer = 0;
+    this.materials = [];
   }
 
   /**
@@ -227,6 +233,8 @@ export class CharacterController {
 
       node.material = Array.isArray(node.material) ? result : result[0];
     });
+
+    this.materials = Array.from(converted.values());
   }
 
   /**
@@ -342,11 +350,29 @@ export class CharacterController {
     this._lunge = 1;
   }
 
+  /**
+   * Apply physical knockback and stagger reaction to the character.
+   * @param {THREE.Vector3} dir direction of impulse
+   * @param {number} force impulse speed (m/s)
+   */
+  applyKnockback(dir, force = 5.0) {
+    if (dir) {
+      const flat = dir.clone().setY(0).normalize();
+      this.velocity.addScaledVector(flat, force);
+    }
+    this.stagger = 1.0;
+    this.hitFlashTimer = 0.22;
+  }
+
   _applyLunge(dt) {
     const c = settings.character;
     if (this._lunge > 0) {
       this._lunge = Math.max(0, this._lunge - c.castSettle * dt);
     }
+    if (this.stagger > 0) {
+      this.stagger = Math.max(0, this.stagger - dt * 4.0);
+    }
+
     // A short overshoot at the front of the envelope reads as a snap rather than a slow bow.
     const envelope = this._lunge * this._lunge * (1 + 0.35 * Math.sin(this._lunge * Math.PI));
 
@@ -355,22 +381,47 @@ export class CharacterController {
     const rumbleJitter = this._lunge > 0 ? Math.sin(rumbleTime) * 0.025 * this._lunge : 0;
     const rumblePitch = this._lunge > 0 ? Math.cos(rumbleTime * 0.8) * 0.02 * this._lunge : 0;
 
-    this.tilt.quaternion.setFromAxisAngle(this._rightAxis, envelope * c.castLean + rumblePitch);
+    // Stagger flinch backward pitch
+    const staggerPitch = this.stagger > 0 ? -this.stagger * 0.3 : 0;
+
+    this.tilt.quaternion.setFromAxisAngle(this._rightAxis, envelope * c.castLean + rumblePitch + staggerPitch);
     this.tilt.position.copy(this.forwardAxis).multiplyScalar(-envelope * c.castRecoil + rumbleJitter);
   }
 
-  /** Put the character back on the floor, upright and facing where it was. */
+  /** Put the character back at the center of the arena, upright and fresh. */
   resetPlacement() {
-    this.root.position.y = 0;
+    this.root.position.set(0, 0, 0);
+    this.velocity.set(0, 0, 0);
+    this.stagger = 0;
     this._lunge = 0;
+    this.hitFlashTimer = 0;
+    for (const mat of this.materials) {
+      if (mat && mat.emissive) mat.emissive.setRGB(0, 0, 0);
+    }
     this.tilt.quaternion.identity();
     this.tilt.position.set(0, 0, 0);
   }
 
   update(dt) {
-    // Driven by the *simulation* delta, and re-applied every frame even at
-    // dt = 0: pausing mid-cast holds the lunge, and `castLean` stays a live
-    // slider against that frozen pose.
+    // Process knockback movement with exponential friction
+    if (this.velocity.lengthSq() > 0.005) {
+      this.root.position.addScaledVector(this.velocity, dt);
+      this.velocity.multiplyScalar(Math.pow(0.02, dt));
+    } else {
+      this.velocity.set(0, 0, 0);
+    }
+
+    // Damage emissive red flash decay
+    if (this.hitFlashTimer > 0) {
+      this.hitFlashTimer -= dt;
+      const t = Math.max(0, this.hitFlashTimer / 0.22);
+      for (const mat of this.materials) {
+        if (mat && mat.emissive) {
+          mat.emissive.setRGB(t * 0.9, t * 0.12, t * 0.12);
+        }
+      }
+    }
+
     this._applyLunge(dt);
 
     if (!this.mixer) return;
