@@ -15,6 +15,7 @@ export class HUD {
   constructor(root) {
     this.root = root;
     this.onAbility = null;
+    this.onSpawnEnemy = null;
     this._toastTimer = 0;
     this._statsAccumulator = 0;
     this._frames = 0;
@@ -26,7 +27,28 @@ export class HUD {
     root.innerHTML = `
       <div class="hud__panel hud__title">
         Elemental Sandbox
-        <span data-blurb>Press Q, E, R, F, V or X, aim, click to cast.</span>
+        <span data-blurb>Press Q, E, R, F, V, X to cast. Press Z or button to spawn enemy.</span>
+      </div>
+
+      <div class="hud__left-actions">
+        <button class="hud__action-btn hud__spawn-btn" id="hud-spawn-btn" title="Random Spawn 15m+ (Z)">
+          <svg class="hud__btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="3" />
+            <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
+            <circle cx="15.5" cy="8.5" r="1.5" fill="currentColor" />
+            <path d="M8 15h8" />
+          </svg>
+          <span class="hud__btn-text">Spawn Random</span>
+          <kbd>Z</kbd>
+        </button>
+
+        <button class="hud__action-btn hud__auto-btn" id="hud-auto-btn" title="Toggle Auto-Spawn Waves (T)">
+          <svg class="hud__btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+          </svg>
+          <span class="hud__btn-text" id="hud-auto-text">Auto Waves</span>
+          <kbd>T</kbd>
+        </button>
       </div>
 
       <div class="hud__panel hud__stats">
@@ -45,7 +67,7 @@ export class HUD {
         <div><strong>Esc / right click</strong> — cancel the cast</div>
         <div><strong>Right drag</strong> — orbit &nbsp; <strong>Scroll</strong> — zoom</div>
         <div style="margin-top:6px">
-          <kbd>G</kbd> editor &nbsp; <kbd>P</kbd> pause &nbsp; <kbd>C</kbd> clear
+          <kbd>Z</kbd> spawn 15m+ &nbsp; <kbd>T</kbd> auto waves &nbsp; <kbd>G</kbd> editor &nbsp; <kbd>P</kbd> pause &nbsp; <kbd>C</kbd> clear
         </div>
         <div><kbd>H</kbd> hide this</div>
         <div class="hud__help-note">Paused still applies every editor change.</div>
@@ -68,6 +90,25 @@ export class HUD {
       <div class="hud__paused" data-paused>Paused</div>
     `;
 
+    this.spawnBtn = root.querySelector('#hud-spawn-btn');
+    this.spawnBtn?.addEventListener('pointerdown', (event) => {
+      event.stopPropagation();
+    });
+    this.spawnBtn?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      this.onSpawnEnemy?.();
+    });
+
+    this.autoBtn = root.querySelector('#hud-auto-btn');
+    this.autoText = root.querySelector('#hud-auto-text');
+    this.autoBtn?.addEventListener('pointerdown', (event) => {
+      event.stopPropagation();
+    });
+    this.autoBtn?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      this.onToggleAutoSpawn?.();
+    });
+
     this.cards = new Map();
     for (const card of root.querySelectorAll('.ability-card')) {
       this.cards.set(card.dataset.element, card);
@@ -87,6 +128,15 @@ export class HUD {
     this.toast = root.querySelector('[data-toast]');
     this.pausedBadge = root.querySelector('[data-paused]');
     this.abilityBar = root.querySelector('.hud__abilities');
+  }
+
+  setAutoSpawn(active) {
+    if (this.autoBtn) {
+      this.autoBtn.classList.toggle('is-active', active);
+    }
+    if (this.autoText) {
+      this.autoText.textContent = active ? 'Waves: ON' : 'Auto Waves';
+    }
   }
 
   /** @param {{silent?: boolean}} [options] */
@@ -154,6 +204,7 @@ export class HUD {
     this._fps = Math.round(this._frames / this._statsAccumulator);
     this._frames = 0;
     this._statsAccumulator = 0;
+    console.log(`FPS: ${this._fps}`);
 
     const info = collect();
     this.stats.fps.textContent = this._fps;

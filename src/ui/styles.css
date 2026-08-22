@@ -278,6 +278,113 @@ body {
   color: var(--ui-text-dim);
 }
 
+/* ------------------------------------------------------------------ *
+ * Left Action Buttons (Spawn Enemy, etc.)
+ * ------------------------------------------------------------------ */
+
+.hud__left-actions {
+  position: absolute;
+  left: 22px;
+  top: 86px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: auto;
+  z-index: 25;
+}
+
+.hud__action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: var(--ui-radius);
+  border: 1px solid var(--ui-border);
+  background: var(--ui-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: var(--ui-text);
+  font-family: var(--ui-font);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  box-shadow: var(--ui-shadow);
+  user-select: none;
+  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.hud__action-btn:hover {
+  transform: translateY(-2px);
+  background: rgba(28, 36, 48, 0.85);
+  border-color: rgba(255, 100, 100, 0.45);
+  box-shadow: 0 0 20px -4px rgba(255, 60, 60, 0.35), var(--ui-shadow);
+}
+
+.hud__action-btn:active {
+  transform: translateY(0) scale(0.97);
+}
+
+.hud__spawn-btn {
+  border-color: rgba(255, 80, 80, 0.28);
+}
+
+.hud__spawn-btn .hud__btn-icon {
+  width: 18px;
+  height: 18px;
+  stroke: #ff6b6b;
+  flex-shrink: 0;
+}
+
+.hud__spawn-btn kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 1px 6px;
+  margin-left: 4px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.1);
+  font: 10px/1.4 var(--ui-font);
+  color: #ff9999;
+  text-align: center;
+}
+
+.hud__auto-btn {
+  border-color: rgba(127, 214, 255, 0.25);
+}
+
+.hud__auto-btn .hud__btn-icon {
+  width: 17px;
+  height: 17px;
+  stroke: var(--ui-accent);
+  fill: none;
+  flex-shrink: 0;
+}
+
+.hud__auto-btn kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 1px 6px;
+  margin-left: 4px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.1);
+  font: 10px/1.4 var(--ui-font);
+  color: var(--ui-accent);
+  text-align: center;
+}
+
+.hud__auto-btn.is-active {
+  background: rgba(30, 70, 110, 0.85);
+  border-color: var(--ui-accent);
+  box-shadow: 0 0 16px -2px rgba(127, 214, 255, 0.5), var(--ui-shadow);
+}
+
+.hud__auto-btn.is-active .hud__btn-icon {
+  fill: var(--ui-accent);
+}
+
 .hud__panel {
   position: absolute;
   padding: 12px 14px;

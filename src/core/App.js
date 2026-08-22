@@ -28,6 +28,7 @@ import { AbilityManager } from '../abilities/AbilityManager.js';
 import { PostProcessing } from '../postprocessing/PostProcessing.js';
 
 import { HUD, LoadingScreen } from '../ui/HUD.js';
+import { EnemySystem } from '../enemies/EnemySystem.js';
 
 import { settings, ELEMENTS } from '../config/settings.js';
 
@@ -86,6 +87,7 @@ export class App {
     this.bursts = new BurstSystem(this.scene);
     this.shake = new CameraShake(this.rig);
     this.flash = new ScreenFlash();
+    this.enemies = new EnemySystem(this.scene);
 
     this.abilities = new AbilityManager({
       scene: this.scene,
@@ -148,6 +150,8 @@ export class App {
     this.aim.on('reject', () => this.hud.showToast('Too close — aim further out'));
 
     this.hud.onAbility = (element) => this.armAbility(element);
+    this.hud.onSpawnEnemy = () => this._handleAction('spawnEnemy');
+    this.hud.onToggleAutoSpawn = () => this._handleAction('toggleAutoSpawn');
   }
 
   async toggleEditor() {
@@ -163,6 +167,19 @@ export class App {
 
   _handleAction(action, slot) {
     switch (action) {
+      case 'spawnEnemy': {
+        // Spawn at a random location 15m+ away around the player
+        const result = this.enemies.spawnRandom(this.character.position, 15, 24);
+        console.log('[Enemy] Random spawn at', result.position, `(${result.distance.toFixed(1)}m away)`);
+        this.hud.showToast(`Spawned Enemy (${result.distance.toFixed(1)}m away)`);
+        break;
+      }
+      case 'toggleAutoSpawn': {
+        const active = this.enemies.toggleAutoSpawn();
+        this.hud.setAutoSpawn?.(active);
+        this.hud.showToast(active ? 'Auto-Spawn Waves: ON (every 4s at 15m+)' : 'Auto-Spawn Waves: OFF');
+        break;
+      }
       case 'ability': {
         const element = ELEMENTS[slot] ?? this.element;
         // Pressing the *same* key again puts an armed cast away, as it does in a
@@ -245,6 +262,7 @@ export class App {
     this.lights.reset();
     this.shake.reset();
     this.flash.reset();
+    this.enemies.clear();
   }
 
   /* ------------------------------------------------------------------ */
@@ -348,6 +366,12 @@ export class App {
     this.fissures.update(dt);
     this.bursts.update(dt);
     this.lights.update(dt);
+    this.enemies.update(dt, this.character.position, this.camera);
+    this.enemies.checkCombat(this.abilities.active, {
+      bursts: this.bursts,
+      shake: this.shake,
+      hud: this.hud
+    });
 
     /* ---- camera ---- */
     const focus = this.abilities.focus;
