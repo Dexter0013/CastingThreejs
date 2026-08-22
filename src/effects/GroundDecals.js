@@ -256,6 +256,12 @@ const DECAL_FRAGMENT = /* glsl */ `
  * material instance per decal keeps the uniforms independent while three's
  * program cache still compiles only one program per decal type.
  */
+/** Maximum simultaneous decals. Oldest is retired when the cap is hit. */
+const MAX_ACTIVE_DECALS = 12;
+
+/** Maximum simultaneous burst spheres. Oldest is retired when the cap is hit. */
+const MAX_ACTIVE_BURSTS = 6;
+
 export class DecalSystem {
   constructor(scene) {
     this.group = new Group();
@@ -307,7 +313,7 @@ export class DecalSystem {
     const mesh = new Mesh(this.geometry, material);
     mesh.layers.set(LAYER.VFX);
     mesh.renderOrder = additive ? 8 : 6;
-    mesh.frustumCulled = false;
+    mesh.frustumCulled = true; // flat ground quads — safe to frustum-cull
 
     return { mesh, material, type, age: 0, life: 1, radius: 1, growth: 0 };
   }
@@ -329,8 +335,15 @@ export class DecalSystem {
       height = 0.02
     } = options;
 
+    // Evict the oldest decal when the cap is reached.
+    if (this.active.length >= MAX_ACTIVE_DECALS) {
+      const oldest = this.active.shift();
+      this._poolFor(oldest.type).release(oldest);
+    }
+
     const decal = this._poolFor(type).acquire();
     const u = decal.material.uniforms;
+
 
     decal.age = 0;
     decal.life = Math.max(0.05, life);
