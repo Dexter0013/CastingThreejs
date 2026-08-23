@@ -1734,43 +1734,43 @@ export const settings = {
     // A dark cinematic stage: one cool key, a colder rim from behind, and very
     // little fill, so the ice is the brightest thing on screen and the fog can
     // swallow the floor into the backdrop.
-    sunIntensity: 2.6,
-    sunColor: '#e8f3ff',
-    sunAzimuth: 2.95,
-    sunElevation: 0.6,
-    ambientIntensity: 0.14,
-    ambientColor: '#8ea8d8',
-    hemiIntensity: 0.36,
-    hemiSkyColor: '#bdd7ff',
-    hemiGroundColor: '#3a4552',
-    rimIntensity: 1.1,
-    rimColor: '#9ec2ff',
+    sunIntensity: 3.2,
+    sunColor: '#fff2d8',
+    sunAzimuth: 0.85,
+    sunElevation: 0.65,
+    ambientIntensity: 0.55,
+    ambientColor: '#ffe8c0',
+    hemiIntensity: 0.7,
+    hemiSkyColor: '#87ceeb',
+    hemiGroundColor: '#c8a060',
+    rimIntensity: 0.45,
+    rimColor: '#fff8e7',
     rimAzimuth: 5.45,
     rimElevation: 0.35,
-    envIntensity: 0.32,
-    backgroundColor: '#121820',
-    // Fog is pulled well back so it only dissolves the far edge of the floor into
-    // the backdrop rather than sitting on top of the action. Toggle and range are
-    // both live in the editor (Environment → Backdrop, fog & dust).
-    fogEnabled: true,
-    fogColor: '#121820',
-    fogNear: 26,
-    fogFar: 135,
-    shadowBias: -0.0008,
-    shadowRadius: 2.2,
-    floorColor: '#191f27',
-    floorTint: '#232b35',
-    floorRoughness: 0.88,
-    floorSheen: 0.34,
-    floorPool: 0.8,
-    // The stone tiling that dresses the floor: ambientCG Rock030 (CC0), a rough
-    // natural rock, living in public/textures/cathedral. `floorTextureScale` is metres of floor
-    // one tile covers; `floorTexTint` grades the grey stone toward `floorTint` so
-    // it sits inside the cool stage palette instead of fighting it.
-    floorTexture: false,
-    floorTextureScale: 12.0,
-    floorNormalScale: 0.85,
-    floorTexTint: 0.4,
+    envIntensity: 0.7,
+    backgroundColor: '#87ceeb',
+    fogEnabled: false,
+    fogColor: '#c8b090',
+    fogNear: 60,
+    fogFar: 220,
+    shadowBias: -0.0001,
+    shadowRadius: 1.5,
+    floorColor: '#5a3e28',
+    floorTint: '#6b4c32',
+    floorRoughness: 0.92,
+    floorSheen: 0.06,
+    floorPool: 0.5,
+    // Brown mud & leaves PBR terrain \u2014 Polyhaven brown_mud_leaves_01 (CC0).
+    // `floorTextureScale` = metres per tile (lower = more repetitions = more
+    // detail visible up close). At 4 m/tile a 1k texture has ~4 px/cm.
+    floorTexture: true,
+    floorTextureScale: 4.0,
+    floorNormalScale: 1.2,
+    floorTexTint: 0.05,
+    grassAmount: 0.82,
+    grassColor: '#4f852b',
+    grassColorWarm: '#82a832',
+    grassColorDark: '#274b17',
     dustAmount: 0.85,
     contactShadow: 0.55
   },

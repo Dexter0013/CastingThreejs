@@ -4,25 +4,27 @@ import {
   MeshStandardMaterial,
   RepeatWrapping,
   SRGBColorSpace,
-  Vector2
+  Vector2,
+  BufferAttribute
 } from 'three';
 import { settings } from '../config/settings.js';
 import { getColor } from '../utils/color.js';
 import { noiseGLSL } from '../shaders/lib/noise.glsl.js';
 import { LAYER } from '../core/Layers.js';
 
-/** Side length of the floor plane, metres — the texture repeat is derived from it. */
-const PLANE_SIZE = 400;
+/** Side length of the arena floor plane, metres (covers the inner arena r <= 110m) */
+const PLANE_SIZE = 230;
 
 /**
- * The stone maps that dress the floor: ambientCG Rock030 (CC0), a rough natural
- * rock tiling. Colour is authored sRGB; the rest are linear data.
+ * Brown mud & leaves PBR terrain — Polyhaven brown_mud_leaves_01 (CC0).
+ * Full PBR set: diffuse albedo, OpenGL normal, and ARM (AO, Roughness, Metalness).
+ * The textures live inside public/brown_mud_leaves_01_1k.gltf/textures/.
  */
 const TEXTURE_URLS = {
-  map: './textures/cathedral/color.jpg',
-  normalMap: './textures/cathedral/normal.jpg',
-  roughnessMap: './textures/cathedral/roughness.jpg',
-  aoMap: './textures/cathedral/ao.jpg'
+  map:         './brown_mud_leaves_01_1k.gltf/textures/brown_mud_leaves_01_diff_1k.jpg',
+  normalMap:   './brown_mud_leaves_01_1k.gltf/textures/brown_mud_leaves_01_nor_gl_1k.jpg',
+  roughnessMap:'./brown_mud_leaves_01_1k.gltf/textures/brown_mud_leaves_01_arm_1k.jpg',
+  aoMap:       './brown_mud_leaves_01_1k.gltf/textures/brown_mud_leaves_01_arm_1k.jpg'
 };
 
 /**
@@ -49,6 +51,7 @@ export class Ground {
       color: 0xffffff,
       roughness: settings.environment.floorRoughness,
       metalness: 0.0,
+      aoMapIntensity: 1.0,
       dithering: true
     });
     this.material.normalScale = new Vector2(
@@ -66,6 +69,10 @@ export class Ground {
       uTexTint: { value: settings.environment.floorTexTint },
       uSheen: { value: settings.environment.floorSheen },
       uPool: { value: settings.environment.floorPool },
+      uGrassAmount: { value: settings.environment.grassAmount ?? 0.82 },
+      uGrassColor: { value: getColor(settings.environment.grassColor ?? '#4f852b').clone() },
+      uGrassColorWarm: { value: getColor(settings.environment.grassColorWarm ?? '#82a832').clone() },
+      uGrassColorDark: { value: getColor(settings.environment.grassColorDark ?? '#274b17').clone() },
       uTime: { value: 0 }
     };
 
@@ -75,6 +82,10 @@ export class Ground {
       shader.uniforms.uTexTint = this.uniforms.uTexTint;
       shader.uniforms.uSheen = this.uniforms.uSheen;
       shader.uniforms.uPool = this.uniforms.uPool;
+      shader.uniforms.uGrassAmount = this.uniforms.uGrassAmount;
+      shader.uniforms.uGrassColor = this.uniforms.uGrassColor;
+      shader.uniforms.uGrassColorWarm = this.uniforms.uGrassColorWarm;
+      shader.uniforms.uGrassColorDark = this.uniforms.uGrassColorDark;
       shader.uniforms.uTime = this.uniforms.uTime;
 
       shader.vertexShader = shader.vertexShader
@@ -94,6 +105,10 @@ export class Ground {
            uniform float uTexTint;
            uniform float uSheen;
            uniform float uPool;
+           uniform float uGrassAmount;
+           uniform vec3 uGrassColor;
+           uniform vec3 uGrassColorWarm;
+           uniform vec3 uGrassColorDark;
            uniform float uTime;
            ${noiseGLSL}`
         )
@@ -104,29 +119,59 @@ export class Ground {
              vec3 wp = vGroundWorld;
 
              #ifdef USE_MAP
-               // The stone albedo is already in diffuseColor. Grade it toward the
-               // stage's cool floor tint without dragging its brightness down:
-               // normalising the tint to unit luminance shifts the hue and leaves
-               // the value to the light pool below.
+               vec3 baseTex = diffuseColor.rgb;
+
+               // Multi-scale procedural grass and terrain synthesis
+               // 1. Macro zones: expansive meadow zones vs shady muddy paths
+               float macroField = fbm3(wp * 0.032);
+
+               // 2. Mid clusters: organic grass tufts and clover colonies
+               float midPatches = snoise(wp * 0.19);
+
+               // 3. Micro grain: high-frequency grass blade texture and directional fiber noise
+               float microBlades = snoise(wp * 1.5) * 0.6 + snoise(wp * 4.2) * 0.4;
+
+               // Combined organic coverage mask
+               float grassMask = smoothstep(-0.25, 0.42, macroField * 0.85 + midPatches * 0.45 + microBlades * 0.2);
+
+               // Multi-hue grass chromatic variation
+               vec3 gBase = uGrassColor;
+               vec3 gWarm = uGrassColorWarm;
+               vec3 gDark = uGrassColorDark;
+
+               vec3 grassHue = mix(gDark, gBase, smoothstep(-0.4, 0.25, macroField + midPatches * 0.2));
+               grassHue = mix(grassHue, gWarm, smoothstep(0.05, 0.65, midPatches + microBlades * 0.4));
+
+               // Modulate with leaf & mud texture luminance so organic ground details show through the grass
+               float texLum = dot(baseTex, vec3(0.299, 0.587, 0.114));
+               vec3 grassShaded = grassHue * (0.42 + texLum * 1.05);
+
+               // Moss/lichen spatter in mud & leaf clearings
+               float mossNoise = smoothstep(0.35, 0.7, snoise(wp * 0.85));
+               vec3 mudShaded = mix(baseTex, gDark * 0.75, mossNoise * 0.35);
+
+               // Blend between soil/leaves and living grass based on organic mask & user amount
+               vec3 terrainColor = mix(mudShaded, grassShaded, grassMask * clamp(uGrassAmount, 0.0, 1.0));
+
+               // Anti-tiling subtle luminance break-up (eliminates repeating grid patterns across 400m)
+               float antiTile = snoise(wp * 0.055) * 0.08 + snoise(wp * 0.012) * 0.12;
+               terrainColor *= (1.0 + antiTile);
+
+               // Stage color grading
                vec3 tint = uFloorTint;
                float tl = max(1e-4, dot(tint, vec3(0.299, 0.587, 0.114)));
-               vec3 graded = diffuseColor.rgb * (tint / tl);
-               diffuseColor.rgb = mix(diffuseColor.rgb, graded, clamp(uTexTint, 0.0, 1.0));
+               vec3 graded = terrainColor * (tint / tl);
+               diffuseColor.rgb = mix(terrainColor, graded, clamp(uTexTint, 0.0, 1.0));
              #else
-               // No texture: the original procedural dark stone. Broad, smooth
-               // variation with a warmer wash drifting through it — anything
-               // higher frequency reads as gravel and fights the clean look.
-               float macro = fbm3(wp * 0.018);
-               float tintMask = smoothstep(-0.5, 0.6, macro);
-               vec3 base = mix(uFloorColor, uFloorTint, tintMask * 0.5);
-               base *= 1.0 + fbm3(wp * 0.09 + 11.0) * 0.05;
-               base *= 1.0 + (snoise01(wp * 0.7) - 0.5) * 0.06;
+               // Procedural fallback if texture is disabled
+               float macro = fbm3(wp * 0.02);
+               float tintMask = smoothstep(-0.4, 0.5, macro);
+               vec3 base = mix(uGrassColorDark, uGrassColor, tintMask);
+               base *= 1.0 + (snoise(wp * 1.2) - 0.5) * 0.1;
                diffuseColor.rgb *= base;
              #endif
 
-             // Radial light pool: the stage centre stays readable and the floor
-             // sinks toward the backdrop long before the plane's edge. Shared by
-             // both paths, because it is what welds the floor into the scene.
+             // Radial light pool for stage integration
              float dist = length(wp.xz);
              float pool = mix(1.0, smoothstep(40.0, 5.0, dist), clamp(uPool, 0.0, 1.0));
              diffuseColor.rgb *= mix(0.18, 1.0, pool);
@@ -136,16 +181,20 @@ export class Ground {
           '#include <roughnessmap_fragment>',
           `#include <roughnessmap_fragment>
            {
-             // Break the sheen up: broad patches of smoother stone catch the key
-             // light and the elemental glows, the rest stays matte. Rides on top
-             // of the roughness map when one is present.
+             // Varied surface scattering: grass areas are soft & matte; mud in clearings has subtle damp sheen
+             float gMask = smoothstep(-0.25, 0.42, fbm3(vGroundWorld * 0.032) * 0.85 + snoise(vGroundWorld * 0.19) * 0.45);
              float polish = smoothstep(0.3, 0.85, fbm3(vGroundWorld * 0.06 + 3.0) * 0.5 + 0.5);
-             roughnessFactor *= mix(1.0, 0.45, polish * clamp(uSheen, 0.0, 1.0));
+             roughnessFactor = mix(roughnessFactor * mix(1.0, 0.45, polish * clamp(uSheen, 0.0, 1.0)), 0.96, gMask * clamp(uGrassAmount, 0.0, 1.0));
            }`
         );
     });
 
-    this.mesh = new Mesh(new PlaneGeometry(PLANE_SIZE, PLANE_SIZE, 1, 1), this.material);
+    const geo = new PlaneGeometry(PLANE_SIZE, PLANE_SIZE, 1, 1);
+    // aoMap requires a second UV set — copy uv → uv2 so MeshStandardMaterial
+    // can sample ambient occlusion from the ARM texture without extra shaders.
+    geo.setAttribute('uv2', new BufferAttribute(geo.attributes.uv.array.slice(), 2));
+
+    this.mesh = new Mesh(geo, this.material);
     this.mesh.rotation.x = -Math.PI / 2;
     this.mesh.receiveShadow = true;
     this.mesh.castShadow = false;
@@ -175,10 +224,16 @@ export class Ground {
       texture.wrapS = RepeatWrapping;
       texture.wrapT = RepeatWrapping;
       texture.anisotropy = maxAniso;
-      // TextureLoader assumes linear data; only the colour map is authored sRGB.
+      // Only the diffuse albedo is sRGB; normal/roughness/AO are linear data.
       if (slot === 'map') texture.colorSpace = SRGBColorSpace;
       textures[slot] = texture;
     }
+
+    // ARM packing: R = AO, G = Roughness, B = Metalness.
+    // Three.js reads roughnessMap.g and aoMap.r automatically — no custom
+    // shader needed, the standard material handles it.
+    if (textures.roughnessMap) this.material.roughnessMap = textures.roughnessMap;
+    if (textures.aoMap)        this.material.aoMap        = textures.aoMap;
 
     this.textures = textures;
     this._applyTiling();
@@ -198,7 +253,7 @@ export class Ground {
     for (const texture of Object.values(this.textures)) texture.repeat.set(repeat, repeat);
   }
 
-  /** Attach or detach the stone maps. Flipping this recompiles once (USE_MAP). */
+  /** Attach or detach the full PBR terrain maps. Flipping this recompiles once (USE_MAP). */
   _setTextured(on) {
     if (!this.textures || on === this._textured) return;
     for (const slot of Object.keys(TEXTURE_URLS)) {
@@ -216,6 +271,10 @@ export class Ground {
     this.uniforms.uTexTint.value = env.floorTexTint;
     this.uniforms.uSheen.value = env.floorSheen;
     this.uniforms.uPool.value = env.floorPool;
+    this.uniforms.uGrassAmount.value = env.grassAmount ?? 0.82;
+    if (env.grassColor) this.uniforms.uGrassColor.value.copy(getColor(env.grassColor));
+    if (env.grassColorWarm) this.uniforms.uGrassColorWarm.value.copy(getColor(env.grassColorWarm));
+    if (env.grassColorDark) this.uniforms.uGrassColorDark.value.copy(getColor(env.grassColorDark));
     this.material.roughness = env.floorRoughness;
     this.material.normalScale.set(env.floorNormalScale, env.floorNormalScale);
 

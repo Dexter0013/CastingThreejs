@@ -7,6 +7,7 @@ import { frame } from './FrameUniforms.js';
 
 import { Environment } from '../world/Environment.js';
 import { Ground } from '../world/Ground.js';
+import { Mountains } from '../world/Mountains.js';
 import { DustMotes } from '../world/DustMotes.js';
 import { ContactShadows } from '../world/ContactShadows.js';
 
@@ -32,7 +33,6 @@ import { EnemySystem } from '../enemies/EnemySystem.js';
 
 import { settings, ELEMENTS } from '../config/settings.js';
 
-const HDR_URL = './hdri/spruit_sunrise.hdr';
 
 /**
  * Application root: owns every subsystem and the frame loop.
@@ -73,10 +73,11 @@ export class App {
 
     /* ---- world ---- */
     this.ground = new Ground(this.environment);
+    this.mountains = new Mountains(this.environment);
     this.dust = new DustMotes();
     this.contactShadows = new ContactShadows(this.renderer, { size: 2.6, height: 2.4, blur: 2.0 });
 
-    this.scene.add(this.ground.mesh, this.dust.points, this.contactShadows.group);
+    this.scene.add(this.ground.mesh, this.mountains.mesh, this.dust.points, this.contactShadows.group);
     this.dust.setPixelRatio(this.renderer.gl.getPixelRatio());
 
     /* ---- shared VFX services ---- */
@@ -364,12 +365,14 @@ export class App {
     const assets = new AssetLoader();
 
     this.loading.setProgress(0.05, 'Loading environment…');
-    const hdr = await assets.loadHDR(HDR_URL);
-    await this.environment.loadEnvironment(hdr);
+    await this.environment.loadEnvironment();
     frame.uEnvMap.value = this.environment.equirect;
 
-    this.loading.setProgress(0.35, 'Loading floor…');
-    await this.ground.loadTextures(assets);
+    this.loading.setProgress(0.35, 'Loading terrain…');
+    await Promise.all([
+      this.ground.loadTextures(assets),
+      this.mountains.loadTextures(assets)
+    ]);
 
     this.loading.setProgress(0.5, 'Loading character…');
     await this.character.load(assets);
@@ -530,6 +533,7 @@ export class App {
     this.lights.dispose();
     this.character.dispose();
     this.ground.dispose();
+    this.mountains.dispose();
     this.dust.dispose();
     this.contactShadows.dispose();
     this.post.dispose();

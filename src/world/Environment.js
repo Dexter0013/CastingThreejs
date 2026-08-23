@@ -7,12 +7,16 @@ import {
   HemisphereLight,
   DirectionalLight,
   EquirectangularReflectionMapping,
-  PMREMGenerator
+  PMREMGenerator,
+  TextureLoader
 } from 'three';
 import { settings } from '../config/settings.js';
 import { getColor } from '../utils/color.js';
 import { frame } from '../core/FrameUniforms.js';
 import { patchOnBeforeCompile } from '../utils/shaderPatch.js';
+
+/** Equirectangular skybox loaded from the public folder. */
+const SKYBOX_URL = './skybox/sky_88_2k.png';
 
 const _sunDir = new Vector3();
 
@@ -115,27 +119,46 @@ export class Environment {
   }
 
   /**
-   * Load the HDR probe. It lights the scene (IBL) but is deliberately *not*
-   * used as the background — the stage keeps its flat dark backdrop.
+   * Load `public/skybox/sky_88_2k.png` as the visible sky *and* as the IBL
+   * probe for PBR reflections. The raw equirect is mapped directly onto the
+   * scene background; a PMREM cube is generated from it so all standard
+   * materials (water, ice, etc.) pick up the correct filtered reflections.
+   *
+   * The `hdrTexture` argument is accepted for API compatibility but ignored —
+   * the skybox PNG is always the source of truth now.
    */
-  async loadEnvironment(hdrTexture) {
-    this._pmrem = new PMREMGenerator(this.renderer.gl);
-    this._pmrem.compileEquirectangularShader();
+  async loadEnvironment(_hdrTexture) {
+    return new Promise((resolve, reject) => {
+      new TextureLoader().load(
+        SKYBOX_URL,
+        (tex) => {
+          tex.mapping = EquirectangularReflectionMapping;
 
-    hdrTexture.mapping = EquirectangularReflectionMapping;
-    const target = this._pmrem.fromEquirectangular(hdrTexture);
+          // Visible sky.
+          this.scene.background = tex;
+          this.equirect = tex;
 
-    this._envMap = target.texture;
-    this.scene.environment = this._envMap;
-    this.scene.environmentIntensity = settings.environment.envIntensity;
+          // IBL — run the equirect through PMREM so PBR materials get proper
+          // filtered environment reflections.
+          const pmrem = new PMREMGenerator(this.renderer.gl);
+          pmrem.compileEquirectangularShader();
+          const envTarget = pmrem.fromEquirectangular(tex);
+          this._envMap = envTarget.texture;
+          this.scene.environment = this._envMap;
+          this.scene.environmentIntensity = settings.environment.envIntensity;
+          pmrem.dispose();
 
-    // Kept as an equirect source for the cheap fake reflections inside the
-    // custom water / wind shaders (they cannot use the PMREM cube directly).
-    this.equirect = hdrTexture;
-
-    this._pmrem.dispose();
-    this._pmrem = null;
+          resolve();
+        },
+        undefined,
+        (err) => {
+          console.warn('[Environment] Skybox failed to load, keeping flat background.', err);
+          resolve(); // non-fatal
+        }
+      );
+    });
   }
+
 
   /**
    * Opt a material into the scene's shadow setup.
@@ -198,7 +221,11 @@ export class Environment {
 
     this.scene.environmentIntensity = env.envIntensity;
 
-    this._bgColor.copy(getColor(env.backgroundColor));
+    // Only restore the flat bgColor fallback if the skybox texture hasn't
+    // loaded yet — once it is set we never want to overwrite it.
+    if (this.scene.background === this._bgColor) {
+      this._bgColor.copy(getColor(env.backgroundColor));
+    }
 
     // Attaching / detaching the fog flips the FOG shader define, so the switch
     // costs one recompile — fine for an editor toggle, and free while it stays on.
