@@ -166,7 +166,20 @@ export class CameraRig {
   }
 
   resize(width, height) {
-    this.camera.aspect = width / height;
+    const aspect = width / Math.max(height, 1);
+    this.camera.aspect = aspect;
+
+    // Responsive FOV: on narrow / portrait / mobile screens (aspect < 1.25),
+    // increase vertical FOV so horizontal framing and arena view are not cropped.
+    const baseFov = settings.camera.fov;
+    if (aspect < 1.25) {
+      const targetHFOV = 70 * (Math.PI / 180);
+      const vFovRad = 2 * Math.atan(Math.tan(targetHFOV / 2) / Math.max(aspect, 0.45));
+      this.camera.fov = MathUtils.clamp(vFovRad * (180 / Math.PI), baseFov, 75);
+    } else {
+      this.camera.fov = baseFov;
+    }
+
     this.camera.updateProjectionMatrix();
   }
 

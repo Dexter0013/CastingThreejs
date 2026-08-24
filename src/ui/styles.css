@@ -717,12 +717,290 @@ body {
   right: 16px;
 }
 
-@media (max-width: 760px) {
-  .hud__help,
-  .hud__stats {
+/* ------------------------------------------------------------------ *
+ * Responsive Optimizations for Tablets, Mobile & Small Screens
+ * ------------------------------------------------------------------ */
+
+@media (max-width: 1024px) {
+  .hud__help {
+    max-width: 220px;
+    font-size: 11px;
+    padding: 8px 10px;
+  }
+}
+
+@media (max-width: 820px) {
+  .hud__help {
     display: none;
   }
+
+  .hud__stats {
+    right: 12px;
+    top: 12px;
+    min-width: unset;
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
+  .hud__stats div:nth-child(n+3) {
+    display: none; /* Hide spikes and draw calls on tablets */
+  }
+
+  .hud__player-hp {
+    width: min(300px, calc(100vw - 140px));
+  }
+
   .ability-card {
     width: 78px;
+    padding: 9px 5px 7px;
+  }
+
+  .ability-card__glyph .glyph-svg {
+    width: 26px;
+    height: 26px;
+  }
+}
+
+@media (max-width: 600px) {
+  .hud__title {
+    display: none;
+  }
+
+  /* Compact top-left icon buttons */
+  .hud__left-actions {
+    top: 10px;
+    left: 10px;
+    flex-direction: row;
+    gap: 6px;
+    z-index: 60;
+  }
+
+  .hud__action-btn {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    gap: 0;
+  }
+
+  .hud__action-btn .hud__btn-text,
+  .hud__action-btn kbd {
+    display: none; /* Icon-only on mobile */
+  }
+
+  .hud__action-btn .hud__btn-icon {
+    width: 17px;
+    height: 17px;
+  }
+
+  /* Ultra-compact & perfectly centered player health bar */
+  .hud__player-bar {
+    top: 10px;
+    z-index: 50;
+  }
+
+  .hud__player-hp {
+    width: min(180px, calc(100vw - 150px));
+    height: 34px;
+    padding: 4px 9px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    background: rgba(10, 16, 26, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+  }
+
+  .hud__hp-track {
+    height: 6px;
+    background: rgba(0, 0, 0, 0.7);
+  }
+
+  .hud__hp-text {
+    font-size: 8px;
+    letter-spacing: 0.08em;
+  }
+
+  .hud__hp-label {
+    display: none; /* Hide label on mobile to save space */
+  }
+
+  .hud__hp-text::before {
+    content: 'HERO HP';
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--ui-text-dim);
+  }
+
+  .hud__hp-text b {
+    font-size: 9.5px;
+    font-weight: 800;
+  }
+
+  /* Sleek top-right FPS display badge matching 34px header height */
+  .hud__stats {
+    right: 10px;
+    top: 10px;
+    height: 34px;
+    min-width: unset;
+    padding: 0 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: rgba(10, 16, 26, 0.94);
+    border: 1px solid var(--ui-border);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: var(--ui-shadow);
+    font-size: 10px;
+    line-height: 1;
+    z-index: 60;
+  }
+
+  .hud__stats div:not(:first-child) {
+    display: none;
+  }
+
+  .hud__stats div:first-child {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--ui-text-dim);
+  }
+
+  .hud__stats b {
+    float: none;
+    color: #4ade80;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  /* Ability Hotbar on mobile */
+  .hud__abilities {
+    bottom: 12px;
+    gap: 5px;
+    max-width: calc(100vw - 12px);
+    overflow-x: auto;
+    padding: 0 4px 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    justify-content: center;
+  }
+
+  .hud__abilities::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ability-card {
+    width: clamp(48px, 14vw, 62px);
+    padding: 6px 3px 5px;
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+
+  .ability-card__key {
+    display: none;
+  }
+
+  .ability-card__glyph .glyph-svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .ability-card__label {
+    font-size: 8px;
+    margin-top: 2px;
+    letter-spacing: 0.01em;
+  }
+
+  .hud__toast {
+    top: 54px;
+    font-size: 11px;
+    padding: 5px 12px;
+  }
+
+  .hud__defeat-box {
+    padding: 24px 18px;
+    border-radius: 16px;
+    width: min(340px, 92vw);
+    gap: 8px;
+  }
+
+  .hud__defeat-icon {
+    font-size: 36px;
+  }
+
+  .hud__defeat-title {
+    font-size: 20px;
+    letter-spacing: 0.16em;
+  }
+
+  .hud__defeat-sub {
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+
+  .hud__restart-btn {
+    padding: 10px 20px;
+    font-size: 12px;
+  }
+
+  .lil-gui.root {
+    max-width: calc(100vw - 20px);
+    right: 10px;
+    top: 10px;
+  }
+}
+
+/* Landscape / short-height mobile screens */
+@media (max-height: 520px) {
+  .hud__player-bar {
+    top: 6px;
+  }
+
+  .hud__player-hp {
+    padding: 4px 10px;
+    width: 220px;
+  }
+
+  .hud__hp-track {
+    height: 6px;
+  }
+
+  .hud__left-actions {
+    top: 6px;
+    left: 8px;
+  }
+
+  .hud__title {
+    display: none;
+  }
+
+  .hud__help {
+    display: none;
+  }
+
+  .hud__abilities {
+    bottom: 6px;
+    gap: 4px;
+  }
+
+  .ability-card {
+    width: 58px;
+    padding: 4px 3px 3px;
+  }
+
+  .ability-card__glyph .glyph-svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .ability-card__label {
+    font-size: 8px;
+    margin-top: 2px;
   }
 }
