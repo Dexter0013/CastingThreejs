@@ -221,7 +221,10 @@ export class App {
     });
     this.input.on('action', (action, slot) => this._handleAction(action, slot));
 
+    this.aim.on('arm', () => this.rig.setAiming(true));
+    this.aim.on('cancel', () => this.rig.setAiming(false));
     this.aim.on('cast', (origin, direction, distance) => {
+      this.rig.setAiming(false);
       if (this.isPlayerDead) return;
       this._cast(origin, direction, distance);
     });
@@ -528,7 +531,18 @@ export class App {
 
     /* ---- camera ---- */
     const focus = this.abilities.focus;
-    if (focus) this.rig.lookAt(focus.position, MathUtils.clamp(1 - focus.u * 0.4, 0, 1));
+    if (focus) {
+      this.rig.lookAt(focus.position, MathUtils.clamp(1 - focus.u * 0.4, 0, 1));
+    } else if (this.aim.isArmed && this.aim.distance > 4.5) {
+      // Tactical Aim Panning for Long-Range Skills:
+      // When aiming a far-reaching spell (Snare, Glacier, Meteor, Nova Beam),
+      // smoothly glide the camera look-at forward along the aim trajectory
+      // so the player can see distant landing zones and enemies on screen.
+      const leadRatio = Math.min(0.55, (this.aim.distance / 35.0) * 0.65);
+      this._focusPoint.copy(this.aim.origin).addScaledVector(this.aim.direction, this.aim.distance * leadRatio);
+      const aimWeight = Math.min(0.85, (this.aim.distance / 18.0));
+      this.rig.lookAt(this._focusPoint, aimWeight);
+    }
     this.rig.setAnchor(this.character.position.x, 0, this.character.position.z);
     this.shake.update(raw);
     this.flash.update(raw);

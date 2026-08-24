@@ -41,7 +41,8 @@ export class CameraRig {
 
     // Free the left button for path drawing.
     this.controls.mouseButtons = { LEFT: null, MIDDLE: null, RIGHT: MOUSE.ROTATE };
-    this.controls.touches = { ONE: null, TWO: TOUCH.DOLLY_ROTATE };
+    // On touch/mobile: 1-finger drags orbit camera, 2-fingers pinch zoom/rotate.
+    this.controls.touches = { ONE: TOUCH.ROTATE, TWO: TOUCH.DOLLY_ROTATE };
 
     this.anchor = new Vector3(0, 0, 0); // the character
     this.focus = new Vector3(0, 0, 0); // point of interest (ability head)
@@ -104,6 +105,26 @@ export class CameraRig {
   lookAt(point, weight = 1) {
     this.focus.copy(point);
     this.focusWeight = Math.max(this.focusWeight, weight);
+  }
+
+  /** Switch touch behavior between free camera orbit and skillshot aiming */
+  setAiming(isAiming) {
+    if (isAiming) {
+      // While aiming a skillshot, 1-finger aims the ground indicator; 2-fingers still rotate/zoom
+      this.controls.touches = { ONE: null, TWO: TOUCH.DOLLY_ROTATE };
+    } else {
+      // While idle, 1-finger drags orbit camera smoothly; 2-fingers zoom/rotate
+      this.controls.touches = { ONE: TOUCH.ROTATE, TWO: TOUCH.DOLLY_ROTATE };
+    }
+  }
+
+  /** Reset camera view back to default third-person angle */
+  resetView() {
+    this.controls.target.set(0, settings.camera.targetHeight, 0);
+    this.camera.position.set(-3.5, 4.0, 6.0);
+    this.distance = 7.5;
+    settings.camera.distance = 7.5;
+    this.controls.update();
   }
 
   /**
