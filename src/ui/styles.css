@@ -508,6 +508,42 @@ body {
   font-weight: 600;
 }
 
+.hud__audio-btn {
+  position: absolute;
+  right: 168px;
+  top: 22px;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(10, 16, 26, 0.88);
+  border: 1px solid var(--ui-border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--ui-shadow);
+  color: var(--ui-text);
+  font-size: 14px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  z-index: 60;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.hud__audio-btn:hover {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(56, 189, 248, 0.5);
+  transform: scale(1.05);
+}
+
+.hud__audio-btn:active {
+  transform: scale(0.95);
+}
+
+.hud__audio-btn.is-muted {
+  opacity: 0.6;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
 .hud__title {
   left: 22px;
   top: 22px;
@@ -683,10 +719,11 @@ body {
 }
 
 /* ------------------------------------------------------------------ *
- * Orbital Range & Skill Casting Controller (Small & Medium Screens)
+ * Orbital Range & Skill Casting Controller (Small & Medium Screens Only)
  * ------------------------------------------------------------------ */
 
 .hud__orbital-ctrl {
+  display: none !important; /* Hidden on Desktop (> 1024px) */
   position: absolute;
   right: 18px;
   bottom: 84px;
@@ -698,7 +735,6 @@ body {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.75), 0 0 24px rgba(56, 189, 248, 0.2);
-  display: flex;
   flex-direction: column;
   gap: 10px;
   z-index: 70;
@@ -994,6 +1030,10 @@ body {
  * ------------------------------------------------------------------ */
 
 @media (max-width: 1024px) {
+  .hud__orbital-ctrl {
+    display: flex !important; /* Visible exclusively on Small & Medium Screens (<= 1024px) */
+  }
+
   .hud__help {
     max-width: 220px;
     font-size: 11px;
@@ -1149,6 +1189,15 @@ body {
     color: #4ade80;
     font-size: 11px;
     font-weight: 800;
+  }
+
+  .hud__audio-btn {
+    right: 74px;
+    top: 10px;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    font-size: 13px;
   }
 
   /* Ability Hotbar on mobile */

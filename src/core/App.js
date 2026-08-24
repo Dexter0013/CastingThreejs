@@ -31,6 +31,7 @@ import { PostProcessing } from '../postprocessing/PostProcessing.js';
 
 import { HUD, LoadingScreen } from '../ui/HUD.js';
 import { EnemySystem } from '../enemies/EnemySystem.js';
+import { SoundManager } from '../audio/SoundManager.js';
 
 import { settings, ELEMENTS } from '../config/settings.js';
 
@@ -123,9 +124,10 @@ export class App {
     /* ---- post ---- */
     this.post = new PostProcessing(this.renderer, this.scene, this.camera);
 
-    /* ---- UI ---- */
+    /* ---- UI & Audio ---- */
     this.loading = new LoadingScreen();
     this.hud = new HUD(document.getElementById('hud'));
+    this.sound = new SoundManager(this.camera);
     this.editor = null;
 
     /* ---- Player Combat Stats ---- */
@@ -156,6 +158,19 @@ export class App {
     this.playerHealth = Math.max(0, this.playerHealth - amount);
     this.playerInvulnTimer = 0.08; // 80ms damage grace period
     this.playerCombatTimer = 0;    // reset out-of-combat regen delay
+
+    this.sound.play('hero_hurt', 0.85);
+    if (sourcePos) {
+      const typeStr = (attackName || '').toLowerCase();
+      const enemyType = typeStr.includes('demon') || typeStr.includes('brute') ? 'brute'
+        : (typeStr.includes('skull') || typeStr.includes('runner') ? 'runner'
+        : (typeStr.includes('bat') || typeStr.includes('specter') ? 'specter' : 'drone'));
+      this.sound.playEnemyAttack(enemyType, sourcePos);
+    }
+
+    if (this.playerHealth <= 0) {
+      this.sound.play('hero_defeat', 1.0);
+    }
 
     console.log(`[COMBAT] Hero took -${amount} damage from ${attackName}. Remaining HP: ${this.playerHealth}`);
 
@@ -240,6 +255,11 @@ export class App {
     this.hud.onCancelAim = () => this.aim.cancel();
     this.hud.onSpawnEnemy = () => this._handleAction('spawnEnemy');
     this.hud.onToggleAutoSpawn = () => this._handleAction('toggleAutoSpawn');
+    this.hud.onToggleAudio = () => {
+      const active = this.sound.toggleMute();
+      this.hud.setAudioState(active);
+      this.hud.showToast(active ? '🔊 Sound: ON' : '🔇 Sound: MUTED');
+    };
     this.hud.onRestart = () => this.restartGame();
   }
 
@@ -282,7 +302,8 @@ export class App {
       case 'toggleAutoSpawn': {
         const active = this.enemies.toggleAutoSpawn();
         this.hud.setAutoSpawn?.(active);
-        this.hud.showToast(active ? 'Auto-Spawn Waves: ON (every 4s at 15m+)' : 'Auto-Spawn Waves: OFF');
+        this.sound.setWaveMode(active);
+        this.hud.showToast(active ? '⚔️ Wave Mode: ON (Epic Battle Theme)' : '❄️ Normal Mode: ON (Majestic Frost)');
         break;
       }
       case 'restart': {
@@ -347,6 +368,9 @@ export class App {
     const element = this.element;
     this.abilities.cast(origin, direction, distance, element);
     this.cooldowns.set(element, Math.max(0, settings[element].cooldown));
+
+    // Play procedural 3D spell audio effect scaled by element heaviness and range
+    this.sound.playCast(element, distance);
 
     // Snap onto the shot and throw the body into it. Which clip that is belongs
     // to the ability, so each spell can be cast with its own gesture.
@@ -531,7 +555,8 @@ export class App {
     this.enemies.checkCombat(this.abilities.active, {
       bursts: this.bursts,
       shake: this.shake,
-      hud: this.hud
+      hud: this.hud,
+      sound: this.sound
     });
 
     /* ---- camera ---- */

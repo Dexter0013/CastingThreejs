@@ -320,6 +320,7 @@ export class EnemySystem {
           if (dist <= corridorRadius + enemy.radius) {
             ability._hitTimestamps.set(enemyKey, now);
             const isDead = enemy.takeDamage(45, segB, 7.5);
+            ctx.sound?.playHitImpact(enemy.position, 45);
 
             // Hit feedback
             ctx.bursts?.spawn(0, enemy.position.clone().setY(1.0), {
@@ -363,6 +364,7 @@ export class EnemySystem {
           if (inRange) {
             ability._hitTimestamps.set(enemyKey, now);
             const isDead = enemy.takeDamage(35, ability.position, 6.0);
+            ctx.sound?.playHitImpact(enemy.position, 35);
 
             ctx.bursts?.spawn(0, enemy.position.clone().setY(1.0), {
               radius: 0.35,
@@ -392,6 +394,15 @@ export class EnemySystem {
             ability._hitTimestamps.set(enemyKey, now);
             const damage = Math.round(85 * Math.max(0.45, 1 - dist / (blastRadius + 2)));
             const isDead = enemy.takeDamage(damage, ability.position, 11.0);
+            ctx.sound?.playHitImpact(enemy.position, damage);
+
+            ctx.bursts?.spawn(0, enemy.position.clone().setY(1.0), {
+              radius: 0.5,
+              endRadius: 3.2,
+              life: 0.45,
+              intensity: 3.5
+            });
+            ctx.shake?.add(0.35, 0.7, 14);
 
             if (isDead) {
               this._onEnemyDefeated(enemy, i, ctx);
@@ -430,6 +441,7 @@ export class EnemySystem {
 
   _onEnemyDefeated(enemy, index, ctx) {
     this.addDangerZone(enemy.position);
+    ctx.sound?.playEnemyDefeat(enemy.type, enemy.position);
     ctx.bursts?.spawn(0, enemy.position.clone().setY(enemy.isFlying ? enemy.position.y : 1.0), {
       radius: 0.7,
       endRadius: 4.5,

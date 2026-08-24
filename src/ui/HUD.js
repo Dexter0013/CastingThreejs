@@ -58,6 +58,10 @@ export class HUD {
         <div>Draw calls <b data-stat="calls">0</b></div>
       </div>
 
+      <button class="hud__audio-btn" id="hud-audio-btn" title="Toggle Audio (M)">
+        <span id="hud-audio-icon">🔊</span>
+      </button>
+
       <div class="hud__panel hud__help">
         <div><strong>Q</strong> — Frost Lance &nbsp; <strong>E</strong> — Storm Lance</div>
         <div><strong>R</strong> — Cinder Fall &nbsp; <strong>F</strong> — Nova Beam</div>
@@ -173,6 +177,16 @@ export class HUD {
       this.onToggleAutoSpawn?.();
     });
 
+    this.audioBtn = root.querySelector('#hud-audio-btn');
+    this.audioIcon = root.querySelector('#hud-audio-icon');
+    this.audioBtn?.addEventListener('pointerdown', (event) => {
+      event.stopPropagation();
+    });
+    this.audioBtn?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      this.onToggleAudio?.();
+    });
+
     this.defeatScreen = root.querySelector('#hud-defeat-screen');
     this.defeatSub = root.querySelector('#hud-defeat-sub');
     this.restartBtn = root.querySelector('#hud-restart-btn');
@@ -236,6 +250,15 @@ export class HUD {
     }
     if (this.autoText) {
       this.autoText.textContent = active ? 'Waves: ON' : 'Auto Waves';
+    }
+  }
+
+  setAudioState(enabled) {
+    if (this.audioIcon) {
+      this.audioIcon.textContent = enabled ? '🔊' : '🔇';
+    }
+    if (this.audioBtn) {
+      this.audioBtn.classList.toggle('is-muted', !enabled);
     }
   }
 
