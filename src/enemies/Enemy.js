@@ -121,6 +121,9 @@ export class Enemy extends Group {
     this.flightTime = Math.random() * 10;
     this.attackCooldownTimer = 0.2; // Immediate first strike ready
 
+    // GLB animation controller
+    this.glbAnim = null;
+
     // Build procedural 3D visual hierarchy based on archetype
     this.visualRoot = new Group();
     this.add(this.visualRoot);
@@ -265,7 +268,10 @@ export class Enemy extends Group {
 
     if (this.health <= 0) {
       this.isDead = true;
+      if (this.glbAnim) this.glbAnim.play('die');
       return true;
+    } else {
+      if (this.glbAnim) this.glbAnim.play('hit');
     }
     return false;
   }
@@ -316,6 +322,20 @@ export class Enemy extends Group {
     // AI steering
     this.ai.update(dt, playerPos, context);
 
+    // Update GLB animations
+    if (this.glbAnim) {
+      this.glbAnim.mixer.update(dt);
+      if (this.isDead) {
+        this.glbAnim.play('die');
+      } else if (this.ai?.isAttacking || this.attackCooldownTimer > (this.archetype.attackCooldown - 0.4)) {
+        this.glbAnim.play('attack');
+      } else if (this.ai?.isMoving || this.velocity.lengthSq() > 0.05) {
+        this.glbAnim.play('walk');
+      } else {
+        this.glbAnim.play('idle');
+      }
+    }
+
     // Billboarding health bar directly to camera (accounting for parent rotation)
     if (camera) {
       this.healthBarGroup.quaternion.copy(this.quaternion).invert().multiply(camera.quaternion);
@@ -334,6 +354,11 @@ export class Enemy extends Group {
     this.bodyMaterial.emissive.copy(this.archetype.emissive);
     this.updateHealthBar();
     this.ai.reset();
+
+    if (this.glbAnim) {
+      this.glbAnim.mixer.stopAllAction();
+      this.glbAnim.play('idle');
+    }
   }
 }
 

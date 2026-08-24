@@ -1,8 +1,8 @@
-// src/enemies/EnemySystem.js
 import { Group, Vector3, SphereGeometry, MeshBasicMaterial, Mesh } from 'three';
 import { ObjectPool } from '../utils/ObjectPool.js';
 import { Enemy, ENEMY_ARCHETYPES } from './Enemy.js';
 import { AI_CONFIG } from './EnemyAI.js';
+import { EnemyModelLoader } from './EnemyModelLoader.js';
 import { LAYER } from '../core/Layers.js';
 
 /** Maximum simultaneous enemies; oldest is removed when cap is hit */
@@ -39,6 +39,9 @@ export class EnemySystem {
     this.active = [];
     this.pools = new Map();
 
+    // GLB/GLTF model loader for animated enemy archetypes
+    this.modelLoader = new EnemyModelLoader();
+
     // Create pools for all enemy archetypes
     for (const type of ALL_TYPES) {
       const pool = new ObjectPool(
@@ -58,6 +61,13 @@ export class EnemySystem {
 
     // Spatial Kill-Zone Memory (Heatmap of danger areas)
     this.dangerZones = [];
+  }
+
+  /**
+   * Load animated GLTF/GLB models for enemies.
+   */
+  async load() {
+    await this.modelLoader.load();
   }
 
   /** Record a death or heavy blast location to spatial AI memory */
@@ -117,6 +127,15 @@ export class EnemySystem {
     if (enemy.parent !== this.group) {
       this.group.add(enemy);
     }
+
+    // Apply GLB/GLTF model if loaded
+    if (this.modelLoader.has(type) && !enemy.glbAnim) {
+      enemy.glbAnim = this.modelLoader.applyTo(enemy);
+    } else if (enemy.glbAnim) {
+      enemy.glbAnim.mixer.stopAllAction();
+      enemy.glbAnim.play('idle');
+    }
+
     this.active.push(enemy);
     return enemy;
   }

@@ -49,6 +49,8 @@ export class EnemyAI {
     this.wanderTimer = 0;
     this.dodgeCooldownTimer = 0;
     this.direction = new Vector3(0, 0, 1);
+    this.isMoving = false;
+    this.isAttacking = false;
 
     // Unique lateral flank bias (-1.0 to +1.0) so enemies don't queue in single file
     this.flankBias = (Math.random() - 0.5) * 2.0;
@@ -59,6 +61,8 @@ export class EnemyAI {
     this.wanderTimer = 0;
     this.dodgeCooldownTimer = 0;
     this.direction.set(0, 0, 1);
+    this.isMoving = false;
+    this.isAttacking = false;
     this.flankBias = (Math.random() - 0.5) * 2.0;
   }
 
@@ -133,15 +137,27 @@ export class EnemyAI {
       }
     }
 
-    // 4. Predictive Aim & Skillshot Dodging
-    if (AI_CONFIG.dodgeEnabled && AI_CONFIG.power > 0 && this.dodgeCooldownTimer <= 0) {
+    // 4. Predictive Aim & Skillshot Dodging (only flying units perform evasive dashes; ground units walk)
+    if (this.enemy.isFlying && AI_CONFIG.dodgeEnabled && AI_CONFIG.power > 0 && this.dodgeCooldownTimer <= 0) {
       this._checkPredictiveDodging(context);
     }
 
-    // 5. Apply Movement Step (scaled by archetype speed)
-    const baseArchetypeSpeed = this.enemy.archetype?.speed || AI_CONFIG.speed;
-    const currentSpeed = (this.state === 'chase' ? baseArchetypeSpeed : baseArchetypeSpeed * 0.45) * (0.5 + 0.5 * AI_CONFIG.power);
-    this.enemy.position.addScaledVector(this.direction, currentSpeed * dt);
+    // 5. Check Attack Range vs Movement
+    const attackRange = this.enemy.archetype?.attackRange || 3.0;
+    if (this.state === 'chase' && distance <= attackRange) {
+      this.isMoving = false;
+      this.isAttacking = true;
+    } else {
+      this.isMoving = true;
+      this.isAttacking = false;
+    }
+
+    // 6. Apply Movement Step (scaled by archetype speed)
+    if (this.isMoving) {
+      const baseArchetypeSpeed = this.enemy.archetype?.speed || AI_CONFIG.speed;
+      const currentSpeed = (this.state === 'chase' ? baseArchetypeSpeed : baseArchetypeSpeed * 0.45) * (0.5 + 0.5 * AI_CONFIG.power);
+      this.enemy.position.addScaledVector(this.direction, currentSpeed * dt);
+    }
 
     // 6. Smooth Facing Rotation & Aerial Banking
     if (this.direction.lengthSq() > 0.001) {

@@ -8,6 +8,7 @@ import { frame } from './FrameUniforms.js';
 import { Environment } from '../world/Environment.js';
 import { Ground } from '../world/Ground.js';
 import { Mountains } from '../world/Mountains.js';
+import { Ruins } from '../world/Ruins.js';
 import { DustMotes } from '../world/DustMotes.js';
 import { ContactShadows } from '../world/ContactShadows.js';
 
@@ -74,10 +75,17 @@ export class App {
     /* ---- world ---- */
     this.ground = new Ground(this.environment);
     this.mountains = new Mountains(this.environment);
+    this.ruins = new Ruins(this.environment);
     this.dust = new DustMotes();
     this.contactShadows = new ContactShadows(this.renderer, { size: 2.6, height: 2.4, blur: 2.0 });
 
-    this.scene.add(this.ground.mesh, this.mountains.mesh, this.dust.points, this.contactShadows.group);
+    this.scene.add(
+      this.ground.mesh,
+      this.mountains.mesh,
+      this.ruins.group,
+      this.dust.points,
+      this.contactShadows.group
+    );
     this.dust.setPixelRatio(this.renderer.gl.getPixelRatio());
 
     /* ---- shared VFX services ---- */
@@ -368,18 +376,47 @@ export class App {
     await this.environment.loadEnvironment();
     frame.uEnvMap.value = this.environment.equirect;
 
-    this.loading.setProgress(0.35, 'Loading terrain…');
+    this.loading.setProgress(0.30, 'Loading terrain…');
     await Promise.all([
       this.ground.loadTextures(assets),
       this.mountains.loadTextures(assets)
     ]);
 
+    this.loading.setProgress(0.45, 'Loading ruins & enemy models…');
+    await Promise.all([
+      this.ruins.loadTextures(assets),
+      this.enemies.load()
+    ]);
+
     this.loading.setProgress(0.5, 'Loading character…');
     await this.character.load(assets);
 
-    this.loading.setProgress(0.85, 'Compiling shaders…');
-    // Compile everything up front so the first cast never stutters.
+    this.loading.setProgress(0.80, 'Warming ability shaders…');
+    // Pre-warm every ability pool: acquiring one instance of each type forces
+    // its meshes into the scene so compileAsync can compile their shaders now.
+    // Without this the first cast triggers lazy GPU shader compilation and
+    // causes a noticeable freeze on the very first attack.
+    const warmupAbilities = [];
+    for (const element of ELEMENTS) {
+      const pool = this.abilities.pools.get(element);
+      if (pool) warmupAbilities.push(pool.acquire());
+    }
+
+    this.loading.setProgress(0.87, 'Compiling shaders…');
+    // Compile everything — ability meshes are now in the scene (hidden),
+    // ruins geometry and all world shaders are compiled in one pass.
     await this.renderer.gl.compileAsync(this.scene, this.camera);
+
+    // Also force-upload the ruins geometry buffer to the GPU so the large mesh
+    // doesn't cause a stutter on the first frame it's shadow-cast.
+    if (this.ruins._sharedGeometry) {
+      this.renderer.gl.initGeometry?.(this.ruins._sharedGeometry);
+    }
+
+    // Release warmed-up abilities back to their pools — they're idle & invisible.
+    for (const ability of warmupAbilities) {
+      this.abilities.pools.get(ability.element)?.release(ability);
+    }
 
     this.loading.setProgress(1, 'Ready');
     this.loading.hide();
@@ -534,6 +571,7 @@ export class App {
     this.character.dispose();
     this.ground.dispose();
     this.mountains.dispose();
+    this.ruins.dispose();
     this.dust.dispose();
     this.contactShadows.dispose();
     this.post.dispose();
