@@ -147,10 +147,36 @@ export class AimController extends EventEmitter {
     return true;
   }
 
-  /* ------------------------------------------------------------------ */
+  /**
+   * Manually control aim heading and deploy distance from the orbital/radial controller.
+   * @param {number} yaw heading in radians
+   * @param {number} distanceRatio 0..1 range ratio between minRange and maxRange
+   * @param {number|null} [directDistance=null] optional absolute distance in metres
+   */
+  setManualAim(yaw, distanceRatio, directDistance = null) {
+    const c = this.config;
+    this.yaw = yaw;
+    this.direction.set(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
+
+    const minR = c.minRange ?? 1.0;
+    const maxR = c.range ?? 24.0;
+    if (directDistance !== null) {
+      this.distance = MathUtils.clamp(directDistance, Math.max(0.2, minR), Math.max(0.4, maxR));
+    } else {
+      this.distance = MathUtils.clamp(minR + distanceRatio * (maxR - minR), minR, maxR);
+    }
+    this.valid = this.distance >= minR;
+    this._manualOverride = true;
+  }
+
+  releaseManualAim() {
+    this._manualOverride = false;
+  }
 
   /** Project the pointer onto the ground and resolve the aim from it. */
   _resolve() {
+    if (this._manualOverride) return;
+
     const c = this.config;
 
     if (this._hasPointer) {

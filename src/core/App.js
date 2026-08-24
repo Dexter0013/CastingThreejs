@@ -233,6 +233,11 @@ export class App {
     this.hud.onAbility = (element) => {
       if (!this.isPlayerDead) this.armAbility(element);
     };
+    this.hud.onManualAim = (yaw, ratio, dist) => this.aim.setManualAim(yaw, ratio, dist);
+    this.hud.onConfirmCast = () => {
+      if (!this.isPlayerDead) this.aim.confirm();
+    };
+    this.hud.onCancelAim = () => this.aim.cancel();
     this.hud.onSpawnEnemy = () => this._handleAction('spawnEnemy');
     this.hud.onToggleAutoSpawn = () => this._handleAction('toggleAutoSpawn');
     this.hud.onRestart = () => this.restartGame();
@@ -562,6 +567,7 @@ export class App {
       this.hud.setCooldown(element, this.cooldowns.get(element) ?? 0, settings[element].cooldown);
     }
     this.hud.setArmed(this.aim.isArmed);
+    this.hud.updateOrbitalAim(this.aim.distance, this.aim.config?.range || 24, this.aim.isArmed);
     this.hud.update(raw, () => ({
       particles: this.particles.countLive(this.elapsed),
       calls: gl.info.render.calls,

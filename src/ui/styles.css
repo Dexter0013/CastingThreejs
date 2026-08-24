@@ -683,6 +683,278 @@ body {
 }
 
 /* ------------------------------------------------------------------ *
+ * Orbital Range & Skill Casting Controller (Small & Medium Screens)
+ * ------------------------------------------------------------------ */
+
+.hud__orbital-ctrl {
+  position: absolute;
+  right: 18px;
+  bottom: 84px;
+  width: 220px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(10, 16, 26, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.75), 0 0 24px rgba(56, 189, 248, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 70;
+  opacity: 0;
+  transform: translateY(12px) scale(0.92);
+  pointer-events: none;
+  transition: opacity 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.hud__orbital-ctrl.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: all;
+}
+
+.hud__orbital-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 6px;
+}
+
+.hud__orbital-tag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--ui-text-dim);
+}
+
+.hud__orbital-dist {
+  font-size: 13px;
+  font-weight: 800;
+  color: #38bdf8;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+}
+
+.hud__orbital-cancel {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--ui-text-dim);
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.hud__orbital-cancel:hover {
+  background: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.hud__orbital-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Vertical Range Scroll Slider */
+.hud__orbital-slider-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 104px;
+  justify-content: center;
+}
+
+.hud__slider-label {
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--ui-text-dim);
+  letter-spacing: 0.08em;
+}
+
+.hud__orbital-slider {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 14px;
+  height: 74px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  outline: none;
+  cursor: ns-resize;
+}
+
+.hud__orbital-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 14px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #38bdf8, #0284c7);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.9);
+  cursor: ns-resize;
+  border: 1px solid #ffffff;
+}
+
+.hud__orbital-slider::-moz-range-thumb {
+  width: 18px;
+  height: 14px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #38bdf8, #0284c7);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.9);
+  cursor: ns-resize;
+  border: 1px solid #ffffff;
+}
+
+/* 360° Orbital Aim Joystick Dial */
+.hud__orbital-dial {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(15, 23, 42, 0.95), rgba(2, 6, 23, 0.95));
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8), 0 0 14px rgba(56, 189, 248, 0.2);
+  display: grid;
+  place-items: center;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.hud__orbital-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  pointer-events: none;
+}
+
+.hud__orbital-ring--outer {
+  width: 82px;
+  height: 82px;
+}
+
+.hud__orbital-ring--mid {
+  width: 48px;
+  height: 48px;
+}
+
+.hud__orbital-pointer {
+  position: absolute;
+  width: 2px;
+  height: 38px;
+  bottom: 50%;
+  left: calc(50% - 1px);
+  transform-origin: bottom center;
+  background: linear-gradient(to top, rgba(56, 189, 248, 0.1), #38bdf8);
+  box-shadow: 0 0 8px #38bdf8;
+  pointer-events: none;
+  transition: transform 0.04s ease-out;
+}
+
+.hud__orbital-pointer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 10px #38bdf8;
+}
+
+.hud__orbital-knob {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+  border: 1.5px solid rgba(56, 189, 248, 0.6);
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: transform 0.08s ease-out;
+}
+
+.hud__orbital-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.hud__orbital-cast-txt {
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #38bdf8;
+  margin-top: 1px;
+}
+
+.hud__orbital-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.hud__orbital-quick-btn {
+  flex: 1;
+  padding: 5px 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--ui-text-dim);
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  text-align: center;
+}
+
+.hud__orbital-quick-btn:hover {
+  background: rgba(56, 189, 248, 0.2);
+  color: #ffffff;
+}
+
+.hud__orbital-quick-btn--max {
+  color: #38bdf8;
+}
+
+.hud__orbital-deploy-btn {
+  flex: 1.2;
+  padding: 5px 0;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #0284c7, #2563eb);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(37, 99, 235, 0.6);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  text-align: center;
+}
+
+.hud__orbital-deploy-btn:active {
+  transform: scale(0.96);
+}
+
+/* ------------------------------------------------------------------ *
  * lil-gui theming
  * ------------------------------------------------------------------ */
 
@@ -928,6 +1200,40 @@ body {
     border-radius: 16px;
     width: min(340px, 92vw);
     gap: 8px;
+  }
+
+  /* Compact Orbital Controller on Mobile */
+  .hud__orbital-ctrl {
+    right: 10px;
+    bottom: 82px;
+    width: 196px;
+    padding: 9px 10px;
+    border-radius: 16px;
+    gap: 7px;
+  }
+
+  .hud__orbital-dial {
+    width: 90px;
+    height: 90px;
+  }
+
+  .hud__orbital-ring--outer {
+    width: 72px;
+    height: 72px;
+  }
+
+  .hud__orbital-ring--mid {
+    width: 40px;
+    height: 40px;
+  }
+
+  .hud__orbital-pointer {
+    height: 33px;
+  }
+
+  .hud__orbital-knob {
+    width: 38px;
+    height: 38px;
   }
 
   .hud__defeat-icon {

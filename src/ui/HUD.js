@@ -102,6 +102,41 @@ export class HUD {
       <div class="hud__toast" data-toast></div>
       <div class="hud__paused" data-paused>Paused</div>
 
+      <!-- Orbital Range & Skill Casting Controller for Small & Medium Screens -->
+      <div class="hud__orbital-ctrl" id="hud-orbital-ctrl">
+        <div class="hud__orbital-header">
+          <span class="hud__orbital-tag" id="hud-orbital-tag">CAST RANGE</span>
+          <b class="hud__orbital-dist" id="hud-orbital-dist">18.0m</b>
+          <button class="hud__orbital-cancel" id="hud-orbital-cancel" title="Cancel (Esc)">✕</button>
+        </div>
+
+        <div class="hud__orbital-body">
+          <!-- Range Scroll Slider -->
+          <div class="hud__orbital-slider-wrap">
+            <span class="hud__slider-label">MAX</span>
+            <input type="range" class="hud__orbital-slider" id="hud-orbital-slider" min="0" max="1" step="0.01" value="0.65" />
+            <span class="hud__slider-label">MIN</span>
+          </div>
+
+          <!-- 360° Orbital Aim Joystick & Radial Dial -->
+          <div class="hud__orbital-dial" id="hud-orbital-dial">
+            <div class="hud__orbital-ring hud__orbital-ring--outer"></div>
+            <div class="hud__orbital-ring hud__orbital-ring--mid"></div>
+            <div class="hud__orbital-pointer" id="hud-orbital-pointer"></div>
+            <div class="hud__orbital-knob" id="hud-orbital-knob">
+              <span class="hud__orbital-icon">🎯</span>
+              <span class="hud__orbital-cast-txt">DEPLOY</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hud__orbital-footer">
+          <button class="hud__orbital-quick-btn" id="hud-orbital-min">MIN (3m)</button>
+          <button class="hud__orbital-quick-btn hud__orbital-quick-btn--max" id="hud-orbital-max">MAX REACH</button>
+          <button class="hud__orbital-deploy-btn" id="hud-orbital-deploy">🔥 CAST</button>
+        </div>
+      </div>
+
       <!-- Defeat / Game Over Overlay -->
       <div class="hud__defeat-screen" id="hud-defeat-screen">
         <div class="hud__defeat-box">
@@ -160,6 +195,28 @@ export class HUD {
         this.onAbility?.(card.dataset.element);
       });
     }
+
+    /* ---- Orbital Range & Aiming Controller Wiring ---- */
+    this.orbitalCtrl = root.querySelector('#hud-orbital-ctrl');
+    this.orbitalDist = root.querySelector('#hud-orbital-dist');
+    this.orbitalSlider = root.querySelector('#hud-orbital-slider');
+    this.orbitalDial = root.querySelector('#hud-orbital-dial');
+    this.orbitalPointer = root.querySelector('#hud-orbital-pointer');
+    this.orbitalKnob = root.querySelector('#hud-orbital-knob');
+    this.orbitalDeployBtn = root.querySelector('#hud-orbital-deploy');
+    this.orbitalMinBtn = root.querySelector('#hud-orbital-min');
+    this.orbitalMaxBtn = root.querySelector('#hud-orbital-max');
+    this.orbitalCancelBtn = root.querySelector('#hud-orbital-cancel');
+
+    this._currentYaw = 0;
+    this._currentRangeRatio = 0.65;
+    this._isDialDragging = false;
+
+    this.onManualAim = null;
+    this.onConfirmCast = null;
+    this.onCancelAim = null;
+
+    this._initOrbitalControls();
 
     this.stats = {
       fps: root.querySelector('[data-stat="fps"]'),
@@ -251,6 +308,117 @@ export class HUD {
     this._cooldownShown.set(element, ratio);
     card.style.setProperty('--cooldown', ratio);
     card.classList.toggle('is-cooling', ratio > 0.001);
+  }
+
+  _initOrbitalControls() {
+    if (!this.orbitalDial) return;
+
+    const onDialMove = (clientX, clientY) => {
+      const rect = this.orbitalDial.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dx = clientX - cx;
+      const dy = clientY - cy;
+
+      const len = Math.hypot(dx, dy);
+      if (len > 4) {
+        this._currentYaw = Math.atan2(dx, -dy);
+        const maxRadius = rect.width / 2 - 10;
+        this._currentRangeRatio = Math.min(1.0, Math.max(0.05, len / maxRadius));
+
+        if (this.orbitalSlider) {
+          this.orbitalSlider.value = this._currentRangeRatio;
+        }
+
+        const clampedLen = Math.min(len, maxRadius);
+        const knobX = (dx / len) * clampedLen * 0.7;
+        const knobY = (dy / len) * clampedLen * 0.7;
+
+        if (this.orbitalKnob) {
+          this.orbitalKnob.style.transform = `translate(${knobX}px, ${knobY}px)`;
+        }
+        if (this.orbitalPointer) {
+          this.orbitalPointer.style.transform = `rotate(${this._currentYaw}rad)`;
+        }
+
+        this.onManualAim?.(this._currentYaw, this._currentRangeRatio);
+      }
+    };
+
+    const handlePointerDown = (e) => {
+      e.stopPropagation();
+      this._isDialDragging = true;
+      onDialMove(e.clientX, e.clientY);
+      window.addEventListener('pointermove', handlePointerMove);
+      window.addEventListener('pointerup', handlePointerUp);
+    };
+
+    const handlePointerMove = (e) => {
+      if (!this._isDialDragging) return;
+      e.stopPropagation();
+      onDialMove(e.clientX, e.clientY);
+    };
+
+    const handlePointerUp = (e) => {
+      if (!this._isDialDragging) return;
+      e.stopPropagation();
+      this._isDialDragging = false;
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+
+      if (this.orbitalKnob) {
+        this.orbitalKnob.style.transform = 'translate(0px, 0px)';
+      }
+    };
+
+    this.orbitalDial.addEventListener('pointerdown', handlePointerDown);
+
+    // Range Slider drag / scroll
+    this.orbitalSlider?.addEventListener('input', (e) => {
+      e.stopPropagation();
+      this._currentRangeRatio = parseFloat(this.orbitalSlider.value);
+      this.onManualAim?.(this._currentYaw, this._currentRangeRatio);
+    });
+    this.orbitalSlider?.addEventListener('pointerdown', (e) => e.stopPropagation());
+
+    // Quick snap buttons
+    this.orbitalMinBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._currentRangeRatio = 0.05;
+      if (this.orbitalSlider) this.orbitalSlider.value = 0.05;
+      this.onManualAim?.(this._currentYaw, 0.05);
+    });
+
+    this.orbitalMaxBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._currentRangeRatio = 1.0;
+      if (this.orbitalSlider) this.orbitalSlider.value = 1.0;
+      this.onManualAim?.(this._currentYaw, 1.0);
+    });
+
+    // Deploy / Fire button
+    this.orbitalDeployBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.onConfirmCast?.();
+    });
+    this.orbitalDeployBtn?.addEventListener('pointerdown', (e) => e.stopPropagation());
+
+    // Cancel button
+    this.orbitalCancelBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.onCancelAim?.();
+    });
+    this.orbitalCancelBtn?.addEventListener('pointerdown', (e) => e.stopPropagation());
+  }
+
+  /** Update orbital controller display state & live distance */
+  updateOrbitalAim(distance, maxRange, armed) {
+    if (this.orbitalCtrl) {
+      this.orbitalCtrl.classList.toggle('is-visible', armed);
+    }
+    if (this.orbitalDist && armed) {
+      this.orbitalDist.textContent = `${distance.toFixed(1)}m / ${maxRange.toFixed(0)}m`;
+    }
   }
 
   setPaused(paused) {
