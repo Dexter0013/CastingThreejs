@@ -80,7 +80,11 @@ export class Environment {
       settings.environment.sunIntensity
     );
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(4096, 4096);
+
+    // Scale shadow map by tier: 1024 on LOW, 2048 on MED, 2048 on HIGH (saving massive VRAM & fill rate)
+    const tier = renderer.tier ?? 'MED';
+    const shadowRes = tier === 'LOW' ? 1024 : tier === 'MED' ? 2048 : 2048;
+    this.sun.shadow.mapSize.set(shadowRes, shadowRes);
     this.sun.shadow.bias = settings.environment.shadowBias;
     this.sun.shadow.normalBias = 0.035;
     this.sun.shadow.radius = settings.environment.shadowRadius;

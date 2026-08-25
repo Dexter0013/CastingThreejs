@@ -26,7 +26,7 @@ export class HUD {
 
     root.innerHTML = `
       <div class="hud__panel hud__title">
-        Elemental Sandbox
+        Arcane Mage
         <span data-blurb>Press Q, E, R, F, V, X to cast. Press Z or button to spawn enemy.</span>
       </div>
 

@@ -110,7 +110,8 @@ export class Ground {
            uniform vec3 uGrassColorWarm;
            uniform vec3 uGrassColorDark;
            uniform float uTime;
-           ${noiseGLSL}`
+           ${noiseGLSL}
+           float gSharedGrassMask = 0.0;`
         )
         .replace(
           '#include <map_fragment>',
@@ -121,18 +122,19 @@ export class Ground {
              #ifdef USE_MAP
                vec3 baseTex = diffuseColor.rgb;
 
-               // Multi-scale procedural grass and terrain synthesis
+               // Multi-scale procedural grass and terrain synthesis (optimized ALU)
                // 1. Macro zones: expansive meadow zones vs shady muddy paths
-               float macroField = fbm3(wp * 0.032);
+               float macroField = snoise(wp * 0.032);
 
                // 2. Mid clusters: organic grass tufts and clover colonies
                float midPatches = snoise(wp * 0.19);
 
-               // 3. Micro grain: high-frequency grass blade texture and directional fiber noise
+               // 3. Micro grain: high-frequency grass blade texture
                float microBlades = snoise(wp * 1.5) * 0.6 + snoise(wp * 4.2) * 0.4;
 
                // Combined organic coverage mask
                float grassMask = smoothstep(-0.25, 0.42, macroField * 0.85 + midPatches * 0.45 + microBlades * 0.2);
+               gSharedGrassMask = grassMask;
 
                // Multi-hue grass chromatic variation
                vec3 gBase = uGrassColor;
@@ -164,11 +166,12 @@ export class Ground {
                diffuseColor.rgb = mix(terrainColor, graded, clamp(uTexTint, 0.0, 1.0));
              #else
                // Procedural fallback if texture is disabled
-               float macro = fbm3(wp * 0.02);
+               float macro = snoise(wp * 0.02);
                float tintMask = smoothstep(-0.4, 0.5, macro);
                vec3 base = mix(uGrassColorDark, uGrassColor, tintMask);
                base *= 1.0 + (snoise(wp * 1.2) - 0.5) * 0.1;
                diffuseColor.rgb *= base;
+               gSharedGrassMask = tintMask;
              #endif
 
              // Radial light pool for stage integration
@@ -181,10 +184,9 @@ export class Ground {
           '#include <roughnessmap_fragment>',
           `#include <roughnessmap_fragment>
            {
-             // Varied surface scattering: grass areas are soft & matte; mud in clearings has subtle damp sheen
-             float gMask = smoothstep(-0.25, 0.42, fbm3(vGroundWorld * 0.032) * 0.85 + snoise(vGroundWorld * 0.19) * 0.45);
-             float polish = smoothstep(0.3, 0.85, fbm3(vGroundWorld * 0.06 + 3.0) * 0.5 + 0.5);
-             roughnessFactor = mix(roughnessFactor * mix(1.0, 0.45, polish * clamp(uSheen, 0.0, 1.0)), 0.96, gMask * clamp(uGrassAmount, 0.0, 1.0));
+             // Varied surface scattering: reuse shared grass mask and single-eval polish noise
+             float polish = smoothstep(0.3, 0.85, snoise(vGroundWorld * 0.06 + 3.0) * 0.5 + 0.5);
+             roughnessFactor = mix(roughnessFactor * mix(1.0, 0.45, polish * clamp(uSheen, 0.0, 1.0)), 0.96, gSharedGrassMask * clamp(uGrassAmount, 0.0, 1.0));
            }`
         );
     });

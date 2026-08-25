@@ -33,7 +33,7 @@ const DISTORTION_CLEAR = new Color(0.5, 0.5, 0.0);
  */
 export class PostProcessing {
   constructor(renderer, scene, camera) {
-    this.renderer = renderer;
+    this.renderer = renderer; // kept for tier queries in sync()
     this.gl = renderer.gl;
     this.scene = scene;
     this.camera = camera;
@@ -142,35 +142,51 @@ export class PostProcessing {
     gl.setRenderTarget(null);
   }
 
-  /** Push editor values into the passes. Called once per frame. */
+  /** Push editor values into the passes. Called once per frame.
+   *
+   * Tier gates:
+   *  LOW  — distortion pass disabled; grain and chromatic aberration zeroed.
+   *          Bloom strength is halved to save fill rate on the extra downsample
+   *          passes that UnrealBloomPass performs.
+   *  MED  — all effects at authored values (default).
+   *  HIGH — no restrictions; full authored quality.
+   */
   sync(elapsed, flash) {
-    const post = settings.post;
+    const post  = settings.post;
+    const tier  = this.renderer.tier; // 'LOW' | 'MED' | 'HIGH'
+    const isLow = (post.adaptiveQuality ?? true) && tier === 'LOW';
 
-    this.bloomPass.strength = post.bloomStrength;
-    this.bloomPass.radius = post.bloomRadius;
+    // Bloom — halve strength on LOW to reduce the multi-pass downsample cost.
+    this.bloomPass.strength  = isLow ? post.bloomStrength * 0.5 : post.bloomStrength;
+    this.bloomPass.radius    = post.bloomRadius;
     this.bloomPass.threshold = post.bloomThreshold;
-    this.bloomPass.enabled = post.enabled && post.bloomStrength > 0.001;
+    this.bloomPass.enabled   = post.enabled && post.bloomStrength > 0.001;
 
     const u = this.gradePass.uniforms;
-    u.uTime.value = elapsed;
-    u.uAberration.value = post.enabled ? post.chromaticAberration : 0;
-    u.uVignette.value = post.enabled ? post.vignette : 0;
-    u.uContrast.value = post.enabled ? post.contrast : 1;
-    u.uSaturation.value = post.enabled ? post.saturation : 1;
+    u.uTime.value        = elapsed;
+    // Chromatic aberration and grain are purely cosmetic; skip them on LOW.
+    u.uAberration.value  = (post.enabled && !isLow) ? post.chromaticAberration : 0;
+    u.uVignette.value    = post.enabled ? post.vignette : 0;
+    u.uContrast.value    = post.enabled ? post.contrast : 1;
+    u.uSaturation.value  = post.enabled ? post.saturation : 1;
     u.uTemperature.value = post.enabled ? post.temperature : 0;
-    u.uLift.value = post.lift;
-    u.uGain.value = post.gain;
-    u.uGrain.value = post.enabled ? post.grain : 0;
+    u.uLift.value        = post.lift;
+    u.uGain.value        = post.gain;
+    u.uGrain.value       = (post.enabled && !isLow) ? post.grain : 0;
     u.uFlashStrength.value = flash.strength;
     u.uFlashColor.value.copy(flash.color);
 
-    this.distortionPass.uniforms.uScale.value = post.enabled ? post.distortion : 0;
-    this.distortionPass.enabled = post.enabled;
+    // Distortion pass is the most expensive auxiliary buffer; skip on LOW.
+    this.distortionPass.uniforms.uScale.value = (post.enabled && !isLow) ? post.distortion : 0;
+    this.distortionPass.enabled = post.enabled && !isLow;
   }
 
   render() {
     this._renderDepth();
-    this._renderDistortion();
+    // Only execute the distortion render pass when distortion is enabled and has non-zero scale
+    if (this.distortionPass.enabled && settings.post.distortion > 0.001) {
+      this._renderDistortion();
+    }
     // Tone mapping is applied by OutputPass: three automatically disables the
     // in-material tone mapping while rendering into the composer's targets.
     this.composer.render();

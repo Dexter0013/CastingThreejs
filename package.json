@@ -1,8 +1,8 @@
 {
-  "name": "casting-abilities",
+  "name": "arcane-mage",
   "version": "1.1.0",
   "private": true,
-  "description": "Elemental VFX sandbox and tactical combat arena — 6 procedural skillshot & AoE abilities, multi-archetype enemy AI, hero vitality & combat loop, custom GLSL shaders, and real-time VFX editor built with Three.js and Vite.",
+  "description": "Arcane Mage — Elemental VFX sandbox and tactical combat arena with 6 procedural skillshot & AoE abilities, multi-archetype enemy AI, hero vitality & combat loop, custom GLSL shaders, and real-time VFX editor built with Three.js and Vite.",
   "type": "module",
   "scripts": {
     "dev": "vite",

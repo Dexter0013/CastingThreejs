@@ -136,12 +136,36 @@ export class CameraRig {
     this._recentreTimer = delay;
   }
 
+  _calculateResponsiveFov(baseFov, aspect) {
+    if (aspect < 1.25) {
+      // Narrow / portrait / mobile screens: scale vertical FOV to maintain horizontal coverage
+      const targetHFOV = 70 * (Math.PI / 180);
+      const vFovRad = 2 * Math.atan(Math.tan(targetHFOV / 2) / Math.max(aspect, 0.45));
+      return MathUtils.clamp(vFovRad * (180 / Math.PI), baseFov, 75);
+    }
+    if (aspect > 2.3) {
+      // 32:9 ultra-wide displays: slightly tighten vertical FOV to prevent peripheral stretching
+      return Math.max(50, baseFov - 4);
+    }
+    return baseFov;
+  }
+
+  _updateFov() {
+    const baseFov = settings.camera.fov;
+    const aspect = this._aspect ?? (this.camera.aspect || 1);
+    const targetFov = this._calculateResponsiveFov(baseFov, aspect);
+    if (Math.abs(this.camera.fov - targetFov) > 0.01) {
+      this.camera.fov = targetFov;
+      this.camera.updateProjectionMatrix();
+    }
+  }
+
   update(dt) {
     const cam = settings.camera;
 
-    if (this.camera.fov !== cam.fov) {
-      this.camera.fov = cam.fov;
-      this.camera.updateProjectionMatrix();
+    if (this._lastSettingsFov !== cam.fov) {
+      this._lastSettingsFov = cam.fov;
+      this._updateFov();
     }
     this.controls.minPolarAngle = cam.minPolar;
     this.controls.maxPolarAngle = cam.maxPolar;
@@ -187,21 +211,9 @@ export class CameraRig {
   }
 
   resize(width, height) {
-    const aspect = width / Math.max(height, 1);
-    this.camera.aspect = aspect;
-
-    // Responsive FOV: on narrow / portrait / mobile screens (aspect < 1.25),
-    // increase vertical FOV so horizontal framing and arena view are not cropped.
-    const baseFov = settings.camera.fov;
-    if (aspect < 1.25) {
-      const targetHFOV = 70 * (Math.PI / 180);
-      const vFovRad = 2 * Math.atan(Math.tan(targetHFOV / 2) / Math.max(aspect, 0.45));
-      this.camera.fov = MathUtils.clamp(vFovRad * (180 / Math.PI), baseFov, 75);
-    } else {
-      this.camera.fov = baseFov;
-    }
-
-    this.camera.updateProjectionMatrix();
+    this._aspect = width / Math.max(height, 1);
+    this.camera.aspect = this._aspect;
+    this._updateFov();
   }
 
   dispose() {

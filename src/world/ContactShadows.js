@@ -101,11 +101,19 @@ export class ContactShadows {
     this.group.position.z = z;
   }
 
+  setBlur(blur) {
+    this.blurAmount = blur;
+  }
+
   render(scene) {
     const gl = this.renderer.gl;
     const strength = settings.environment.contactShadow;
     this.plane.material.opacity = strength;
     if (strength <= 0.001) return;
+
+    const tier = this.renderer.tier ?? 'MED';
+    // On LOW tier, if strength is low or device is constrained, single blur pass saves 2 draw calls
+    const isLowOrMed = tier === 'LOW' || tier === 'MED';
 
     const previousBackground = scene.background;
     const previousOverride = scene.overrideMaterial;
@@ -128,7 +136,9 @@ export class ContactShadows {
 
     scene.overrideMaterial = previousOverride;
     this._blur(this.blurAmount);
-    this._blur(this.blurAmount * 0.35);
+    if (!isLowOrMed) {
+      this._blur(this.blurAmount * 0.35);
+    }
     gl.setClearColor(this._clearColor, previousAlpha);
 
     gl.setRenderTarget(null);

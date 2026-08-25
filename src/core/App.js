@@ -70,6 +70,10 @@ export class App {
     this.rig = new CameraRig(canvas);
     this.camera = this.rig.camera;
 
+    // Apply tier-specific defaults before anything is loaded so low-end devices
+    // never pay the full particle budget even on frame 1.
+    this._applyTierDefaults();
+
     this.environment = new Environment(this.renderer, this.camera);
     this.scene = this.environment.scene;
 
@@ -149,6 +153,41 @@ export class App {
     this.selectAbility(ELEMENTS[0], { silent: true });
 
     this._focusPoint = new Vector3();
+  }
+
+  /**
+   * Scale particle and shadow budgets to match the GPU tier detected by
+   * `Renderer`. Called once at construction, before the load sequence.
+   *
+   * | setting                    | LOW  | MED  | HIGH |
+   * |----------------------------|------|------|------|
+   * | global.particleCount       | 0.35 | 1.00 | 1.20 |
+   * | global.particleLifetime    | 0.20 | 0.35 | 0.45 |
+   * | global.emissionRate        | 0.40 | 1.00 | 1.00 |
+   * | contact shadow blur        | 1.20 | 2.00 | 2.80 |
+   *
+   * The existing FPS-based auto-scaler in `frame()` remains as a safety net.
+   */
+  _applyTierDefaults() {
+    const tier = this.renderer.tier;
+    if (tier === 'LOW') {
+      settings.global.particleCount    = 0.35;
+      settings.global.particleLifetime = 0.20;
+      settings.global.emissionRate     = 0.40;
+      settings.meteor.trailSteps       = 14;
+      this.contactShadows?.setBlur?.(1.0);
+    } else if (tier === 'MED') {
+      settings.global.particleCount    = 0.85;
+      settings.global.particleLifetime = 0.30;
+      settings.global.emissionRate     = 0.85;
+      settings.meteor.trailSteps       = 22;
+      this.contactShadows?.setBlur?.(1.8);
+    } else if (tier === 'HIGH') {
+      settings.global.particleCount    = 1.20;
+      settings.global.particleLifetime = 0.45;
+      settings.meteor.trailSteps       = 35;
+      this.contactShadows?.setBlur?.(2.4);
+    }
   }
 
   /** Damage the player when struck by enemy melee or projectile */
@@ -423,32 +462,40 @@ export class App {
     this.loading.setProgress(0.5, 'Loading character…');
     await this.character.load(assets);
 
-    this.loading.setProgress(0.80, 'Warming ability shaders…');
-    // Pre-warm every ability pool: acquiring one instance of each type forces
-    // its meshes into the scene so compileAsync can compile their shaders now.
-    // Without this the first cast triggers lazy GPU shader compilation and
-    // causes a noticeable freeze on the very first attack.
+    this.loading.setProgress(0.70, 'Pre-warming ability shaders…');
+    // Pre-instantiate each ability pool, decal type, and burst mode so their
+    // geometry buffers and ShaderMaterials are allocated and cached.
     const warmupAbilities = [];
     for (const element of ELEMENTS) {
       const pool = this.abilities.pools.get(element);
-      if (pool) warmupAbilities.push(pool.acquire());
+      if (pool) {
+        warmupAbilities.push(pool.acquire());
+      }
     }
 
-    this.loading.setProgress(0.87, 'Compiling shaders…');
-    // Compile everything — ability meshes are now in the scene (hidden),
-    // ruins geometry and all world shaders are compiled in one pass.
-    await this.renderer.gl.compileAsync(this.scene, this.camera);
+    this.decals.prewarm?.();
+    this.bursts.prewarm?.();
+    this.fissures.prewarm?.();
 
-    // Also force-upload the ruins geometry buffer to the GPU so the large mesh
-    // doesn't cause a stutter on the first frame it's shadow-cast.
+    this.loading.setProgress(0.85, 'Compiling shaders…');
+    // Asynchronously compile scene against main camera and sun shadow camera
+    await this.renderer.gl.compileAsync(this.scene, this.camera);
+    if (this.environment?.sun?.shadow?.camera) {
+      await this.renderer.gl.compileAsync(this.scene, this.environment.sun.shadow.camera);
+    }
+
+    // Force-upload ruins geometry buffer to GPU
     if (this.ruins._sharedGeometry) {
       this.renderer.gl.initGeometry?.(this.ruins._sharedGeometry);
     }
 
-    // Release warmed-up abilities back to their pools — they're idle & invisible.
+    // Release warmed-up abilities back to their pools
     for (const ability of warmupAbilities) {
       this.abilities.pools.get(ability.element)?.release(ability);
     }
+
+    // Guarantee field, indicators, and effect systems are clean and idle at start
+    this.clearEffects();
 
     this.loading.setProgress(1, 'Ready');
     this.loading.hide();

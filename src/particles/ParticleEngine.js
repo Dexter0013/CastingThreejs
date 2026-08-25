@@ -56,6 +56,22 @@ export class ParticleEngine {
     return total;
   }
 
+  prewarm() {
+    for (const system of this.systems.values()) {
+      if (system.mesh) {
+        system.mesh.visible = true;
+      }
+    }
+  }
+
+  postWarmup() {
+    for (const system of this.systems.values()) {
+      if (system.mesh) {
+        system.mesh.visible = true;
+      }
+    }
+  }
+
   reset() {
     for (const system of this.systems.values()) system.reset();
   }

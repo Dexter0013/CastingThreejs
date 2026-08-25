@@ -275,6 +275,16 @@ export class DecalSystem {
     this.pools = new Map();
   }
 
+  prewarm() {
+    for (const type of Object.values(DecalType)) {
+      if (typeof type === 'number') {
+        const decal = this._poolFor(type).acquire();
+        decal.mesh.visible = false;
+        this._poolFor(type).release(decal);
+      }
+    }
+  }
+
   _poolFor(type) {
     let pool = this.pools.get(type);
     if (!pool) {

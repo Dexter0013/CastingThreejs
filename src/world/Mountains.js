@@ -221,7 +221,7 @@ export class Mountains {
 
     this.mesh = new Mesh(this.geometry, this.material);
     this.mesh.receiveShadow = true;
-    this.mesh.castShadow = true;
+    this.mesh.castShadow = false; // Mountains are r=110m..560m, outside the 26m shadow box
     this.mesh.name = 'MountainTerrain';
     this.mesh.layers.set(LAYER.WORLD);
 

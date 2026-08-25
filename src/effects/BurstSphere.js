@@ -176,6 +176,16 @@ export class BurstSystem {
     this.active = [];
   }
 
+  prewarm() {
+    for (const mode of Object.values(BurstMode)) {
+      if (typeof mode === 'number') {
+        const burst = this._poolFor(mode).acquire();
+        burst.mesh.visible = false;
+        this._poolFor(mode).release(burst);
+      }
+    }
+  }
+
   _poolFor(mode) {
     let pool = this.pools.get(mode);
     if (!pool) {

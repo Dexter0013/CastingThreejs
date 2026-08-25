@@ -553,6 +553,12 @@ export class FissureSystem {
     );
   }
 
+  prewarm() {
+    const fissure = this.pool.acquire();
+    fissure.group.visible = false;
+    this.pool.release(fissure);
+  }
+
   /**
    * Tear the ground open.
    * @param {THREE.Vector3} position where it was hit

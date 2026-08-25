@@ -1780,6 +1780,11 @@ export const settings = {
   /* ------------------------------------------------------------------ */
   post: {
     enabled: true,
+    // When true (default), PostProcessing reads renderer.tier and drops
+    // expensive passes (distortion, grain, CA) on LOW-tier devices. Set to
+    // false to override the tier system and run at full authored quality —
+    // useful for profiling or when targeting a known-capable device.
+    adaptiveQuality: true,
     exposure: 1.05,
     // Threshold sits above the ice body's lit value on purpose: only the rim,
     // the glints and the impact should bloom, not the whole crystal field.

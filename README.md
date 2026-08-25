@@ -1,4 +1,4 @@
-# Elemental Sandbox — Procedural Skillshots & Tactical AI Combat Arena
+# Arcane Mage — Procedural Skillshots & Tactical AI Combat Arena
 
 A real-time skillshot VFX sandbox and tactical combat playground built with **Three.js**, **Vite** and hand-written **GLSL**.
 

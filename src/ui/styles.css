@@ -1026,8 +1026,62 @@ body {
 }
 
 /* ------------------------------------------------------------------ *
- * Responsive Optimizations for Tablets, Mobile & Small Screens
+ * Responsive Optimizations for Large Screens, Tablets & Mobile
  * ------------------------------------------------------------------ */
+
+/* Large and 4K displays (>= 1440px) */
+@media (min-width: 1440px) {
+  .hud__player-hp {
+    width: 420px;
+    padding: 12px 22px;
+  }
+
+  .hud__hp-track {
+    height: 14px;
+  }
+
+  .ability-card {
+    width: 110px;
+    padding: 14px 10px 12px;
+  }
+
+  .ability-card__glyph .glyph-svg {
+    width: 38px;
+    height: 38px;
+  }
+
+  .ability-card__label {
+    font-size: 12px;
+  }
+
+  .hud__action-btn {
+    padding: 12px 18px;
+    font-size: 13px;
+  }
+
+  .lil-gui.root {
+    --font-size: 12px;
+    --input-font-size: 12px;
+    --title-height: 34px;
+    --widget-height: 25px;
+    width: 300px;
+  }
+}
+
+@media (min-width: 2000px) {
+  .hud__player-hp {
+    width: 480px;
+    padding: 14px 26px;
+  }
+
+  .ability-card {
+    width: 124px;
+  }
+
+  .lil-gui.root {
+    width: 340px;
+  }
+}
 
 @media (max-width: 1024px) {
   .hud__orbital-ctrl {
@@ -1047,8 +1101,8 @@ body {
   }
 
   .hud__stats {
-    right: 12px;
-    top: 12px;
+    right: max(12px, env(safe-area-inset-right, 12px));
+    top: max(12px, env(safe-area-inset-top, 12px));
     min-width: unset;
     padding: 6px 10px;
     font-size: 11px;
@@ -1080,8 +1134,8 @@ body {
 
   /* Compact top-left icon buttons */
   .hud__left-actions {
-    top: 10px;
-    left: 10px;
+    top: max(10px, env(safe-area-inset-top, 10px));
+    left: max(10px, env(safe-area-inset-left, 10px));
     flex-direction: row;
     gap: 6px;
     z-index: 60;
@@ -1109,7 +1163,7 @@ body {
 
   /* Ultra-compact & perfectly centered player health bar */
   .hud__player-bar {
-    top: 10px;
+    top: max(10px, env(safe-area-inset-top, 10px));
     z-index: 50;
   }
 
@@ -1154,8 +1208,8 @@ body {
 
   /* Sleek top-right FPS display badge matching 34px header height */
   .hud__stats {
-    right: 10px;
-    top: 10px;
+    right: max(10px, env(safe-area-inset-right, 10px));
+    top: max(10px, env(safe-area-inset-top, 10px));
     height: 34px;
     min-width: unset;
     padding: 0 9px;
@@ -1192,8 +1246,8 @@ body {
   }
 
   .hud__audio-btn {
-    right: 74px;
-    top: 10px;
+    right: calc(max(10px, env(safe-area-inset-right, 10px)) + 64px);
+    top: max(10px, env(safe-area-inset-top, 10px));
     width: 34px;
     height: 34px;
     border-radius: 10px;
@@ -1202,7 +1256,7 @@ body {
 
   /* Ability Hotbar on mobile */
   .hud__abilities {
-    bottom: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom, 12px));
     gap: 5px;
     max-width: calc(100vw - 12px);
     overflow-x: auto;
@@ -1239,7 +1293,7 @@ body {
   }
 
   .hud__toast {
-    top: 54px;
+    top: max(54px, calc(env(safe-area-inset-top, 10px) + 44px));
     font-size: 11px;
     padding: 5px 12px;
   }
@@ -1253,8 +1307,8 @@ body {
 
   /* Compact Orbital Controller on Mobile */
   .hud__orbital-ctrl {
-    right: 10px;
-    bottom: 82px;
+    right: max(10px, env(safe-area-inset-right, 10px));
+    bottom: max(82px, calc(env(safe-area-inset-bottom, 12px) + 70px));
     width: 196px;
     padding: 9px 10px;
     border-radius: 16px;
@@ -1306,15 +1360,47 @@ body {
 
   .lil-gui.root {
     max-width: calc(100vw - 20px);
-    right: 10px;
-    top: 10px;
+    right: max(10px, env(safe-area-inset-right, 10px));
+    top: max(10px, env(safe-area-inset-top, 10px));
+  }
+}
+
+/* Extra small devices (<= 380px) */
+@media (max-width: 380px) {
+  .hud__player-hp {
+    width: min(150px, calc(100vw - 140px));
+    padding: 3px 6px;
+  }
+
+  .ability-card {
+    width: 46px;
+    padding: 5px 2px 4px;
+  }
+
+  .ability-card__glyph .glyph-svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .ability-card__label {
+    font-size: 7px;
+  }
+
+  .hud__orbital-ctrl {
+    width: 180px;
+    padding: 8px;
+  }
+
+  .hud__orbital-dial {
+    width: 80px;
+    height: 80px;
   }
 }
 
 /* Landscape / short-height mobile screens */
 @media (max-height: 520px) {
   .hud__player-bar {
-    top: 6px;
+    top: max(6px, env(safe-area-inset-top, 6px));
   }
 
   .hud__player-hp {
@@ -1327,8 +1413,8 @@ body {
   }
 
   .hud__left-actions {
-    top: 6px;
-    left: 8px;
+    top: max(6px, env(safe-area-inset-top, 6px));
+    left: max(8px, env(safe-area-inset-left, 8px));
   }
 
   .hud__title {
@@ -1340,7 +1426,7 @@ body {
   }
 
   .hud__abilities {
-    bottom: 6px;
+    bottom: max(6px, env(safe-area-inset-bottom, 6px));
     gap: 4px;
   }
 
