@@ -21,50 +21,37 @@ export class SoundManager {
     this.enabled = true;
     this.unlocked = false;
 
-    /* ---- Background Music (Normal Ambient & Wave Combat) ---- */
-    this.audioLoader = new AudioLoader();
-    this.bgmNormal = new Audio(this.listener);
-    this.bgmWave = new Audio(this.listener);
+    /* ---- Background Music (HTML5 Streamed Audio — zero stutter / jitter on all devices) ---- */
+    this.bgmNormal = new window.Audio('back_music/rubyzephyr-majestic-frost-446039.mp3');
+    this.bgmNormal.loop = true;
+    this.bgmNormal.preload = 'auto';
+
+    this.bgmWave = new window.Audio('back_music/sigmamusicart-epic-cinematic-background-music-551329.mp3');
+    this.bgmWave.loop = true;
+    this.bgmWave.preload = 'auto';
+
     this.isWaveMode = false;
-    this.normalVolume = 0.42;
-    this.waveVolume = 0.50;
+    this.targetNormalVol = 0.42;
+    this.targetWaveVol = 0.50;
+    this.currentNormalVol = 0.42;
+    this.currentWaveVol = 0.0;
+    this.masterBgmVolume = 1.0;
+    this._fadeRaf = null;
+
+    this.bgmNormal.volume = this.targetNormalVol;
+    this.bgmWave.volume = 0.0;
 
     this._initBuffers();
-    this._initBGM();
     this._bindUnlock();
-  }
-
-  _initBGM() {
-    this.audioLoader.load('back_music/rubyzephyr-majestic-frost-446039.mp3', (buffer) => {
-      this.bgmNormal.setBuffer(buffer);
-      this.bgmNormal.setLoop(true);
-      this.bgmNormal.setVolume(this.isWaveMode ? 0 : this.normalVolume);
-      if (this.unlocked && !this.bgmNormal.isPlaying && !this.isWaveMode && this.enabled) {
-        this.bgmNormal.play();
-      }
-    });
-
-    this.audioLoader.load('back_music/sigmamusicart-epic-cinematic-background-music-551329.mp3', (buffer) => {
-      this.bgmWave.setBuffer(buffer);
-      this.bgmWave.setLoop(true);
-      this.bgmWave.setVolume(this.isWaveMode ? this.waveVolume : 0);
-      if (this.unlocked && !this.bgmWave.isPlaying && this.isWaveMode && this.enabled) {
-        this.bgmWave.play();
-      }
-    });
   }
 
   _bindUnlock() {
     const unlock = () => {
+      this.unlocked = true;
       if (this.context && this.context.state === 'suspended') {
-        this.context.resume().then(() => {
-          this.unlocked = true;
-          this.startBGM();
-        });
-      } else {
-        this.unlocked = true;
-        this.startBGM();
+        this.context.resume().catch(() => {});
       }
+      this.startBGM();
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('keydown', unlock);
       window.removeEventListener('touchstart', unlock);
@@ -79,20 +66,52 @@ export class SoundManager {
     if (!this.enabled) return;
 
     if (this.isWaveMode) {
-      if (this.bgmWave.buffer && !this.bgmWave.isPlaying) {
-        this.bgmWave.setVolume(this.waveVolume);
-        this.bgmWave.play();
-      }
-      if (this.bgmNormal.isPlaying) {
-        this.bgmNormal.setVolume(0);
-      }
+      this.bgmWave.volume = Math.max(0, Math.min(1, this.targetWaveVol * this.masterBgmVolume));
+      const p = this.bgmWave.play();
+      if (p) p.catch(() => {});
+      this.bgmNormal.pause();
+      this.bgmNormal.volume = 0;
     } else {
-      if (this.bgmNormal.buffer && !this.bgmNormal.isPlaying) {
-        this.bgmNormal.setVolume(this.normalVolume);
-        this.bgmNormal.play();
-      }
-      if (this.bgmWave.isPlaying) {
-        this.bgmWave.setVolume(0);
+      this.bgmNormal.volume = Math.max(0, Math.min(1, this.targetNormalVol * this.masterBgmVolume));
+      const p = this.bgmNormal.play();
+      if (p) p.catch(() => {});
+      this.bgmWave.pause();
+      this.bgmWave.volume = 0;
+    }
+  }
+
+  _updateBgmVolumes() {
+    if (!this.enabled) {
+      this.bgmNormal.volume = 0;
+      this.bgmWave.volume = 0;
+      return;
+    }
+
+    const targetNorm = this.isWaveMode ? 0 : this.targetNormalVol;
+    const targetWav  = this.isWaveMode ? this.targetWaveVol : 0;
+
+    this.currentNormalVol += (targetNorm - this.currentNormalVol) * 0.06;
+    this.currentWaveVol   += (targetWav  - this.currentWaveVol)   * 0.06;
+
+    const finalNorm = Math.max(0, Math.min(1, this.currentNormalVol * this.masterBgmVolume));
+    const finalWav  = Math.max(0, Math.min(1, this.currentWaveVol * this.masterBgmVolume));
+
+    this.bgmNormal.volume = finalNorm;
+    this.bgmWave.volume = finalWav;
+
+    if (Math.abs(targetNorm - this.currentNormalVol) > 0.005 || Math.abs(targetWav - this.currentWaveVol) > 0.005) {
+      this._fadeRaf = requestAnimationFrame(() => this._updateBgmVolumes());
+    } else {
+      this.currentNormalVol = targetNorm;
+      this.currentWaveVol = targetWav;
+      this.bgmNormal.volume = Math.max(0, Math.min(1, targetNorm * this.masterBgmVolume));
+      this.bgmWave.volume = Math.max(0, Math.min(1, targetWav * this.masterBgmVolume));
+      this._fadeRaf = null;
+
+      if (this.isWaveMode && this.bgmNormal.volume === 0 && !this.bgmNormal.paused) {
+        this.bgmNormal.pause();
+      } else if (!this.isWaveMode && this.bgmWave.volume === 0 && !this.bgmWave.paused) {
+        this.bgmWave.pause();
       }
     }
   }
@@ -105,42 +124,20 @@ export class SoundManager {
     this.isWaveMode = isWaveActive;
     if (!this.unlocked || !this.enabled) return;
 
-    const ctx = this.context;
-    const now = ctx.currentTime;
-    const fadeDuration = 1.4; // 1.4 second smooth crossfade
-
     if (isWaveActive) {
-      // Fade in Wave Music, Fade out Normal Music
-      if (this.bgmWave.buffer && !this.bgmWave.isPlaying) {
-        this.bgmWave.setVolume(0);
-        this.bgmWave.play();
-      }
-      if (this.bgmWave.gain) {
-        this.bgmWave.gain.gain.cancelScheduledValues(now);
-        this.bgmWave.gain.gain.setValueAtTime(this.bgmWave.gain.gain.value, now);
-        this.bgmWave.gain.gain.linearRampToValueAtTime(this.waveVolume, now + fadeDuration);
-      }
-      if (this.bgmNormal.gain && this.bgmNormal.isPlaying) {
-        this.bgmNormal.gain.gain.cancelScheduledValues(now);
-        this.bgmNormal.gain.gain.setValueAtTime(this.bgmNormal.gain.gain.value, now);
-        this.bgmNormal.gain.gain.linearRampToValueAtTime(0, now + fadeDuration);
+      if (this.bgmWave.paused) {
+        const p = this.bgmWave.play();
+        if (p) p.catch(() => {});
       }
     } else {
-      // Fade in Normal Music, Fade out Wave Music
-      if (this.bgmNormal.buffer && !this.bgmNormal.isPlaying) {
-        this.bgmNormal.setVolume(0);
-        this.bgmNormal.play();
+      if (this.bgmNormal.paused) {
+        const p = this.bgmNormal.play();
+        if (p) p.catch(() => {});
       }
-      if (this.bgmNormal.gain) {
-        this.bgmNormal.gain.gain.cancelScheduledValues(now);
-        this.bgmNormal.gain.gain.setValueAtTime(this.bgmNormal.gain.gain.value, now);
-        this.bgmNormal.gain.gain.linearRampToValueAtTime(this.normalVolume, now + fadeDuration);
-      }
-      if (this.bgmWave.gain && this.bgmWave.isPlaying) {
-        this.bgmWave.gain.gain.cancelScheduledValues(now);
-        this.bgmWave.gain.gain.setValueAtTime(this.bgmWave.gain.gain.value, now);
-        this.bgmWave.gain.gain.linearRampToValueAtTime(0, now + fadeDuration);
-      }
+    }
+
+    if (!this._fadeRaf) {
+      this._fadeRaf = requestAnimationFrame(() => this._updateBgmVolumes());
     }
   }
 
@@ -149,23 +146,33 @@ export class SoundManager {
       this.context.resume().then(() => {
         this.unlocked = true;
         this.startBGM();
-      });
+      }).catch(() => {});
     } else {
+      this.unlocked = true;
       this.startBGM();
     }
   }
 
   setVolume(volume) {
-    if (this.masterGain) {
-      this.masterGain.gain.setValueAtTime(Math.max(0, Math.min(1, volume)), this.context.currentTime);
+    const vol = Math.max(0, Math.min(1, volume));
+    this.masterBgmVolume = vol;
+    if (this.masterGain && this.context) {
+      this.masterGain.gain.setValueAtTime(vol, this.context.currentTime);
+    }
+    if (!this._fadeRaf) {
+      this._fadeRaf = requestAnimationFrame(() => this._updateBgmVolumes());
     }
   }
 
   toggleMute() {
     this.enabled = !this.enabled;
-    this.setVolume(this.enabled ? 1.0 : 0.0);
     if (this.enabled) {
+      this.setVolume(1.0);
       this.startBGM();
+    } else {
+      this.setVolume(0.0);
+      this.bgmNormal.pause();
+      this.bgmWave.pause();
     }
     return this.enabled;
   }
@@ -508,12 +515,17 @@ export class SoundManager {
 
     let sound = this.audioPool.find((s) => !s.isPlaying);
     if (!sound) {
-      sound = new Audio(this.listener);
-      this.audioPool.push(sound);
+      if (this.audioPool.length < 8) {
+        sound = new Audio(this.listener);
+        this.audioPool.push(sound);
+      } else {
+        sound = this.audioPool[0];
+        if (sound.isPlaying) sound.stop();
+      }
     }
 
     sound.setBuffer(buffer);
-    sound.setVolume(volume);
+    sound.setVolume(volume * this.masterBgmVolume);
     sound.setPlaybackRate(pitch * (0.97 + Math.random() * 0.06));
     sound.play();
   }
@@ -527,8 +539,13 @@ export class SoundManager {
 
     let posSound = this.posPool.find((s) => !s.isPlaying);
     if (!posSound) {
-      posSound = new PositionalAudio(this.listener);
-      this.posPool.push(posSound);
+      if (this.posPool.length < 8) {
+        posSound = new PositionalAudio(this.listener);
+        this.posPool.push(posSound);
+      } else {
+        posSound = this.posPool[0];
+        if (posSound.isPlaying) posSound.stop();
+      }
     }
 
     posSound.position.copy(position);
@@ -536,8 +553,26 @@ export class SoundManager {
     posSound.setRefDistance(refDistance);
     posSound.setMaxDistance(maxDistance);
     posSound.setRolloffFactor(1.15);
-    posSound.setVolume(volume);
+    posSound.setVolume(volume * this.masterBgmVolume);
     posSound.setPlaybackRate(pitch * (0.96 + Math.random() * 0.08));
     posSound.play();
+  }
+
+  dispose() {
+    if (this._fadeRaf) cancelAnimationFrame(this._fadeRaf);
+    this.bgmNormal.pause();
+    this.bgmNormal.src = '';
+    this.bgmWave.pause();
+    this.bgmWave.src = '';
+    for (const s of this.audioPool) {
+      if (s.isPlaying) s.stop();
+      s.disconnect();
+    }
+    for (const s of this.posPool) {
+      if (s.isPlaying) s.stop();
+      s.disconnect();
+    }
+    this.audioPool.length = 0;
+    this.posPool.length = 0;
   }
 }

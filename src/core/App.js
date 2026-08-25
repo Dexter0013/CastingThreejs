@@ -667,6 +667,7 @@ export class App {
     this.dust.dispose();
     this.contactShadows.dispose();
     this.post.dispose();
+    this.sound.dispose();
     this.environment.dispose();
     this.editor?.dispose();
     this.rig.dispose();
