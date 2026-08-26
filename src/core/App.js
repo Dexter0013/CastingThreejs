@@ -318,11 +318,7 @@ export class App {
     this.hud.onCancelAim = () => this.aim.cancel();
     this.hud.onSpawnEnemy = () => this._handleAction('spawnEnemy');
     this.hud.onToggleAutoSpawn = () => this._handleAction('toggleAutoSpawn');
-    this.hud.onToggleAudio = () => {
-      const active = this.sound.toggleMute();
-      this.hud.setAudioState(active);
-      this.hud.showToast(active ? '🔊 Sound: ON' : '🔇 Sound: MUTED');
-    };
+    this.hud.onToggleAudio = () => this._handleAction('toggleAudio');
     this.hud.onRestart = () => this.restartGame();
   }
 
@@ -401,6 +397,13 @@ export class App {
         this.hud.setPaused(this.paused);
         this.hud.showToast(this.paused ? 'Paused — the editor still applies' : 'Resumed');
         break;
+      case 'toggleAudio': {
+        const active = this.sound.toggleMute();
+        this.hud.setAudioState(active);
+        const trackName = this.sound.isWaveMode ? 'Epic Battle Theme' : 'Majestic Frost';
+        this.hud.showToast(active ? `🎵 Music & Sound: ON (${trackName})` : '🔇 Music & Sound: MUTED');
+        break;
+      }
       default:
         break;
     }

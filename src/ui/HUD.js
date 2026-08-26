@@ -51,16 +51,18 @@ export class HUD {
         </button>
       </div>
 
-      <div class="hud__panel hud__stats">
-        <div>FPS <b data-stat="fps">—</b></div>
-        <div>Particles <b data-stat="particles">0</b></div>
-        <div>Instances <b data-stat="spikes">0</b></div>
-        <div>Draw calls <b data-stat="calls">0</b></div>
-      </div>
+      <div class="hud__top-right">
+        <button class="hud__audio-btn" id="hud-audio-btn" title="Toggle Music & Sound (M)">
+          <span id="hud-audio-icon">🔊</span>
+        </button>
 
-      <button class="hud__audio-btn" id="hud-audio-btn" title="Toggle Audio (M)">
-        <span id="hud-audio-icon">🔊</span>
-      </button>
+        <div class="hud__panel hud__stats">
+          <div>FPS <b data-stat="fps">—</b></div>
+          <div>Particles <b data-stat="particles">0</b></div>
+          <div>Instances <b data-stat="spikes">0</b></div>
+          <div>Draw calls <b data-stat="calls">0</b></div>
+        </div>
+      </div>
 
       <div class="hud__panel hud__help">
         <div><strong>Q</strong> — Frost Lance &nbsp; <strong>E</strong> — Storm Lance</div>
@@ -71,7 +73,7 @@ export class HUD {
         <div><strong>Esc / right click</strong> — cancel the cast</div>
         <div><strong>Right drag</strong> — orbit &nbsp; <strong>Scroll</strong> — zoom</div>
         <div style="margin-top:6px">
-          <kbd>Z</kbd> spawn 15m+ &nbsp; <kbd>T</kbd> auto waves &nbsp; <kbd>G</kbd> editor &nbsp; <kbd>P</kbd> pause &nbsp; <kbd>C</kbd> clear
+          <kbd>Z</kbd> spawn 15m+ &nbsp; <kbd>T</kbd> auto waves &nbsp; <kbd>M</kbd> music &nbsp; <kbd>G</kbd> editor &nbsp; <kbd>P</kbd> pause &nbsp; <kbd>C</kbd> clear
         </div>
         <div><kbd>H</kbd> hide this</div>
         <div class="hud__help-note">Paused still applies every editor change.</div>

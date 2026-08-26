@@ -110,6 +110,9 @@ export class InputManager extends EventEmitter {
       case 'KeyP':
         this.emit('action', 'togglePause');
         break;
+      case 'KeyM':
+        this.emit('action', 'toggleAudio');
+        break;
       case 'KeyZ':
         this.emit('action', 'spawnEnemy');
         break;
@@ -125,6 +128,8 @@ export class InputManager extends EventEmitter {
           this.emit('action', 'spawnEnemy');
         } else if (event.key?.toLowerCase() === 't') {
           this.emit('action', 'toggleAutoSpawn');
+        } else if (event.key?.toLowerCase() === 'm') {
+          this.emit('action', 'toggleAudio');
         }
         break;
     }

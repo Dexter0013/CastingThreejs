@@ -2,7 +2,30 @@
 
 A real-time skillshot VFX sandbox and tactical combat playground built with **Three.js**, **Vite** and hand-written **GLSL**.
 
-Featuring **six elemental abilities** with two distinct aiming paradigms, a multi-archetype **tactical enemy AI system** with spatial kill-zone memory and predictive dodging, a **hero vitality and combat loop** with dynamic knockback and two-tier health regeneration, and a live parameter editor with over 900 tunable controls.
+Featuring **six elemental abilities** with two distinct aiming paradigms, **nine dynamic environment biomes & themes** with theme-specific spell shapes, sizes, lighting, and luminous fog, a multi-archetype **tactical enemy AI system** with spatial kill-zone memory and predictive dodging, a **hero vitality and combat loop** with dynamic knockback and two-tier health regeneration, and a live parameter editor with over 900 tunable controls.
+
+---
+
+## 🌍 Nine Dynamic Environment Themes & Biomes
+
+The arena dynamically morphs across **9 curated environmental themes**, each altering the world's sun, sky, terrain, luminous fog, post-processing color grading, and giving all 6 elemental abilities customized geometry, sizes, color palettes, and point-light systems:
+
+| Theme | Biome Atmosphere | Fog & Mood | Skill Size & Appearance Transformations |
+|---|---|---|---|
+| **✨ Classic Arcane** *(Base)* | Fantasy daylight grove with authentic baseline lighting | Clean open daylight horizon, zero glare | Factory standard authentic dimensions, crystal cyan/azure palettes |
+| **🌒 Crimson Eclipse** | Blood moon twilight with ominous red contrast | Luminous crimson mist (`#6e2a38`) & burning ember motes | Massive `0.92m` magma meteor (`4.8m` blast), tall `2.9m` curved blood crystals, blood-red lightning |
+| **❄️ Midnight Arctic** | Glacial sub-zero blizzard with pale cyan key & indigo depth | Bright icy frost mist (`#95d2f0`) & snow crystal motes | Colossal `3.15m` 8-facet ice monoliths, towering `1.8m` glacier crown, tight `0.74m` razor cryo beam |
+| **🌿 Emerald Necropolis** | Toxic jade swamp with mystical bio-luminescence | Glowing jade miasma (`#50c485`) & floating green spores | Sprawling `4.9m` radius toxic snare, `0.84m` disintegration beam, jagged curved toxic jade crystals |
+| **🌅 Golden Solstice** | Radiant desert sunset with golden hour brilliance | Golden sunlit haze (`#d6a560`) & desert sand motes | High-arc (`2.8m`) golden solar flare meteor, broad `0.19m` divine sparks, amber crystal prisms |
+| **⚡ Cyber Neon Void** | Synthwave electric magenta key, cyan rim, obsidian stage | Luminous violet-cyan ether (`#7d3594`) & digital motes | High-tech `10.5m` cyber grid snare, fast `10.5 m/s` neon lightning, hot magenta crystals & obsidian rock |
+| **🌋 Volcanic Caldera** | Smoldering molten orange key & fiery ground rumbles | Glowing magma smoke (`#944525`) & burning cinder motes | Colossal `0.96m` magma bomb (`5.2m` blast, 14 facets), basalt magma spikes, `0.90m` roaring plasma stream |
+| **🌌 Abyssal Twilight** | Celestial deep violet cosmic haze & ethereal shadows | Ethereal astral violet nebula mist (`#6f4fa6`) & stardust | Astral amethyst glacier crown (`1.68m`), `2.9m` deep void amethyst spears, cosmic pulsar ray |
+| **🌸 Celestial Dawn** | Serene pastel morning with rose quartz haze & gold sun | Soft pastel rose morning mist (`#dcaebc`) & sunbeam motes | Delicate `2.65m` rose quartz crystals, `1.42m` crystalline diadem crown, soft dawn aurora beam |
+
+### Theme Lifecycle & Features
+- **Smart Session Reload Chain:** Initial boot always starts on authentic `Classic Arcane`. Subsequent page reloads advance in sequence through all 8 biomes and loop seamlessly back to Classic.
+- **Immediate Loading Screen Sync:** The minimalist loading screen displays the active theme name immediately on reload with zero flicker.
+- **Live VFX Editor Integration:** Includes one-click **Randomize Environment & Powers** and **Reset Environment to Defaults** controls inside the editor (**G** key).
 
 ---
 

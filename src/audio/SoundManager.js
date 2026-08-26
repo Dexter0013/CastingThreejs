@@ -167,12 +167,13 @@ export class SoundManager {
   toggleMute() {
     this.enabled = !this.enabled;
     if (this.enabled) {
+      this.unlockAudio();
       this.setVolume(1.0);
       this.startBGM();
     } else {
       this.setVolume(0.0);
-      this.bgmNormal.pause();
-      this.bgmWave.pause();
+      try { this.bgmNormal.pause(); } catch (_) {}
+      try { this.bgmWave.pause(); } catch (_) {}
     }
     return this.enabled;
   }
