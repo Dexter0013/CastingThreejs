@@ -14,6 +14,18 @@ export const ENVIRONMENT_THEMES = {
     icon: '🌒',
     accent: '#ff4d29',
     description: 'Blood moon twilight with ominous crimson shadows and warm contrast',
+    global: {
+      lightIntensity: 1.0,
+      glow: 1.0
+    },
+    spells: {
+      ice: { lightColor: '#ff5533' },
+      thunder: { lightColor: '#ff4466' },
+      meteor: { lightColor: '#ff3b1e', lightIntensity: 16 },
+      beam: { lightColor: '#ff6633' },
+      snare: { lightColor: '#ff2255' },
+      glacier: { lightColor: '#ff6644' }
+    },
     environment: {
       sunIntensity: 3.6,
       sunColor: '#ff4d29',
@@ -46,17 +58,17 @@ export const ENVIRONMENT_THEMES = {
       grassColorDark: '#120508'
     },
     post: {
-      exposure: 1.05,
-      bloomStrength: 0.85,
-      bloomRadius: 0.45,
-      bloomThreshold: 0.75,
-      contrast: 1.18,
-      saturation: 1.35,
-      temperature: 0.22,
-      lift: -0.015,
-      gain: 1.08,
-      vignette: 0.55,
-      chromaticAberration: 0.45,
+      exposure: 1.02,
+      bloomStrength: 0.05,
+      bloomRadius: 0.5,
+      bloomThreshold: 0.86,
+      contrast: 1.15,
+      saturation: 1.25,
+      temperature: 0.18,
+      lift: -0.012,
+      gain: 1.04,
+      vignette: 0.52,
+      chromaticAberration: 0.4,
       grain: 0.045
     }
   },
@@ -66,6 +78,18 @@ export const ENVIRONMENT_THEMES = {
     icon: '❄️',
     accent: '#a8e8ff',
     description: 'Glacial sub-zero blizzard with pale cyan key and deep indigo fog',
+    global: {
+      lightIntensity: 1.0,
+      glow: 1.0
+    },
+    spells: {
+      ice: { lightColor: '#9fe8ff' },
+      thunder: { lightColor: '#6ee0ff' },
+      meteor: { lightColor: '#80e5ff' },
+      beam: { lightColor: '#b8f2ff' },
+      snare: { lightColor: '#7be3ff' },
+      glacier: { lightColor: '#a8f0ff' }
+    },
     environment: {
       sunIntensity: 3.0,
       sunColor: '#a8e8ff',
@@ -98,13 +122,13 @@ export const ENVIRONMENT_THEMES = {
       grassColorDark: '#09161e'
     },
     post: {
-      exposure: 1.0,
-      bloomStrength: 0.95,
-      bloomRadius: 0.5,
-      bloomThreshold: 0.7,
-      contrast: 1.12,
-      saturation: 0.95,
-      temperature: -0.28,
+      exposure: 1.02,
+      bloomStrength: 0.04,
+      bloomRadius: 0.55,
+      bloomThreshold: 0.87,
+      contrast: 1.1,
+      saturation: 0.98,
+      temperature: -0.22,
       lift: -0.005,
       gain: 1.02,
       vignette: 0.45,
@@ -118,6 +142,18 @@ export const ENVIRONMENT_THEMES = {
     icon: '🌿',
     accent: '#52ffa8',
     description: 'Eerie jade glow with poisonous mist and mystical toxic ambiance',
+    global: {
+      lightIntensity: 1.0,
+      glow: 1.0
+    },
+    spells: {
+      ice: { lightColor: '#4dff9e' },
+      thunder: { lightColor: '#26e680' },
+      meteor: { lightColor: '#70ff54' },
+      beam: { lightColor: '#52ffa8' },
+      snare: { lightColor: '#36f08a' },
+      glacier: { lightColor: '#5effb0' }
+    },
     environment: {
       sunIntensity: 3.2,
       sunColor: '#52ffa8',
@@ -151,16 +187,16 @@ export const ENVIRONMENT_THEMES = {
     },
     post: {
       exposure: 1.02,
-      bloomStrength: 1.05,
-      bloomRadius: 0.48,
-      bloomThreshold: 0.72,
-      contrast: 1.15,
-      saturation: 1.25,
-      temperature: -0.1,
+      bloomStrength: 0.05,
+      bloomRadius: 0.5,
+      bloomThreshold: 0.86,
+      contrast: 1.12,
+      saturation: 1.18,
+      temperature: -0.08,
       lift: -0.01,
-      gain: 1.05,
-      vignette: 0.5,
-      chromaticAberration: 0.4,
+      gain: 1.03,
+      vignette: 0.48,
+      chromaticAberration: 0.38,
       grain: 0.042
     }
   },
@@ -170,6 +206,18 @@ export const ENVIRONMENT_THEMES = {
     icon: '🌅',
     accent: '#ffcc66',
     description: 'Radiant desert sunset with rich golden hour brilliance and lavender dusk',
+    global: {
+      lightIntensity: 1.0,
+      glow: 1.0
+    },
+    spells: {
+      ice: { lightColor: '#ffcc55' },
+      thunder: { lightColor: '#ffaa33' },
+      meteor: { lightColor: '#ff8822' },
+      beam: { lightColor: '#ffe066' },
+      snare: { lightColor: '#ff9933' },
+      glacier: { lightColor: '#ffd466' }
+    },
     environment: {
       sunIntensity: 3.8,
       sunColor: '#ffcc66',
@@ -202,13 +250,13 @@ export const ENVIRONMENT_THEMES = {
       grassColorDark: '#313e11'
     },
     post: {
-      exposure: 1.05,
-      bloomStrength: 0.8,
-      bloomRadius: 0.42,
-      bloomThreshold: 0.78,
-      contrast: 1.1,
-      saturation: 1.2,
-      temperature: 0.25,
+      exposure: 1.03,
+      bloomStrength: 0.035,
+      bloomRadius: 0.55,
+      bloomThreshold: 0.88,
+      contrast: 1.08,
+      saturation: 1.12,
+      temperature: 0.16,
       lift: -0.008,
       gain: 1.0,
       vignette: 0.38,
@@ -222,6 +270,18 @@ export const ENVIRONMENT_THEMES = {
     icon: '⚡',
     accent: '#ff2a9d',
     description: 'Synthwave electric magenta key, neon cyan rim, and deep obsidian stage',
+    global: {
+      lightIntensity: 1.0,
+      glow: 1.0
+    },
+    spells: {
+      ice: { lightColor: '#ff2ad4' },
+      thunder: { lightColor: '#00f5ff' },
+      meteor: { lightColor: '#ff007f' },
+      beam: { lightColor: '#00f0ff' },
+      snare: { lightColor: '#b52aff' },
+      glacier: { lightColor: '#ff33cc' }
+    },
     environment: {
       sunIntensity: 3.4,
       sunColor: '#ff2a9d',
@@ -254,18 +314,18 @@ export const ENVIRONMENT_THEMES = {
       grassColorDark: '#0d0417'
     },
     post: {
-      exposure: 1.08,
-      bloomStrength: 1.25,
-      bloomRadius: 0.55,
-      bloomThreshold: 0.65,
-      contrast: 1.25,
-      saturation: 1.45,
-      temperature: 0.05,
-      lift: -0.02,
-      gain: 1.1,
-      vignette: 0.6,
-      chromaticAberration: 0.55,
-      grain: 0.05
+      exposure: 1.04,
+      bloomStrength: 0.07,
+      bloomRadius: 0.5,
+      bloomThreshold: 0.84,
+      contrast: 1.18,
+      saturation: 1.28,
+      temperature: 0.04,
+      lift: -0.015,
+      gain: 1.04,
+      vignette: 0.55,
+      chromaticAberration: 0.45,
+      grain: 0.045
     }
   },
 
@@ -274,6 +334,18 @@ export const ENVIRONMENT_THEMES = {
     icon: '🌋',
     accent: '#ff6b2b',
     description: 'Smoldering molten orange key, ash fog, and fiery ground rumbles',
+    global: {
+      lightIntensity: 1.0,
+      glow: 1.0
+    },
+    spells: {
+      ice: { lightColor: '#ff6622' },
+      thunder: { lightColor: '#ff5011' },
+      meteor: { lightColor: '#ff4400', lightIntensity: 16 },
+      beam: { lightColor: '#ff7722' },
+      snare: { lightColor: '#ff4800' },
+      glacier: { lightColor: '#ff6611' }
+    },
     environment: {
       sunIntensity: 3.5,
       sunColor: '#ff6b2b',
@@ -306,18 +378,18 @@ export const ENVIRONMENT_THEMES = {
       grassColorDark: '#0d0604'
     },
     post: {
-      exposure: 1.04,
-      bloomStrength: 1.1,
+      exposure: 1.02,
+      bloomStrength: 0.05,
       bloomRadius: 0.5,
-      bloomThreshold: 0.7,
-      contrast: 1.2,
-      saturation: 1.3,
-      temperature: 0.3,
-      lift: -0.015,
-      gain: 1.06,
-      vignette: 0.58,
-      chromaticAberration: 0.45,
-      grain: 0.05
+      bloomThreshold: 0.86,
+      contrast: 1.14,
+      saturation: 1.2,
+      temperature: 0.2,
+      lift: -0.012,
+      gain: 1.03,
+      vignette: 0.52,
+      chromaticAberration: 0.4,
+      grain: 0.045
     }
   },
 
@@ -326,6 +398,18 @@ export const ENVIRONMENT_THEMES = {
     icon: '🌌',
     accent: '#9d6bff',
     description: 'Mystic celestial violet, starry cosmic haze, and ethereal shadow gradients',
+    global: {
+      lightIntensity: 1.0,
+      glow: 1.0
+    },
+    spells: {
+      ice: { lightColor: '#b070ff' },
+      thunder: { lightColor: '#8a4dff' },
+      meteor: { lightColor: '#c555ff' },
+      beam: { lightColor: '#9d6bff' },
+      snare: { lightColor: '#7b38ff' },
+      glacier: { lightColor: '#b880ff' }
+    },
     environment: {
       sunIntensity: 3.1,
       sunColor: '#9d6bff',
@@ -359,17 +443,17 @@ export const ENVIRONMENT_THEMES = {
     },
     post: {
       exposure: 1.02,
-      bloomStrength: 0.9,
-      bloomRadius: 0.46,
-      bloomThreshold: 0.74,
-      contrast: 1.14,
-      saturation: 1.2,
-      temperature: -0.15,
+      bloomStrength: 0.045,
+      bloomRadius: 0.5,
+      bloomThreshold: 0.87,
+      contrast: 1.12,
+      saturation: 1.12,
+      temperature: -0.12,
       lift: -0.01,
-      gain: 1.04,
-      vignette: 0.48,
-      chromaticAberration: 0.4,
-      grain: 0.042
+      gain: 1.02,
+      vignette: 0.46,
+      chromaticAberration: 0.38,
+      grain: 0.04
     }
   },
 
@@ -378,6 +462,18 @@ export const ENVIRONMENT_THEMES = {
     icon: '🌸',
     accent: '#ffd1dc',
     description: 'Serene pastel morning with rose quartz haze, sky blue bounce, and soft gold sun',
+    global: {
+      lightIntensity: 1.0,
+      glow: 1.0
+    },
+    spells: {
+      ice: { lightColor: '#ffd0e0' },
+      thunder: { lightColor: '#90c8ff' },
+      meteor: { lightColor: '#ffb3c6' },
+      beam: { lightColor: '#ffe0ea' },
+      snare: { lightColor: '#b0d4ff' },
+      glacier: { lightColor: '#ffd8e8' }
+    },
     environment: {
       sunIntensity: 3.2,
       sunColor: '#fff0d0',
@@ -410,13 +506,13 @@ export const ENVIRONMENT_THEMES = {
       grassColorDark: '#223b18'
     },
     post: {
-      exposure: 1.0,
-      bloomStrength: 0.7,
-      bloomRadius: 0.4,
-      bloomThreshold: 0.8,
+      exposure: 1.02,
+      bloomStrength: 0.03,
+      bloomRadius: 0.5,
+      bloomThreshold: 0.88,
       contrast: 1.05,
-      saturation: 1.1,
-      temperature: 0.05,
+      saturation: 1.08,
+      temperature: 0.04,
       lift: 0.0,
       gain: 1.0,
       vignette: 0.35,
@@ -430,6 +526,19 @@ export const ENVIRONMENT_THEMES = {
     icon: '✨',
     accent: '#5fd0ff',
     description: 'The standard cinematic fantasy grove stage',
+    global: {
+      lightIntensity: 1.0,
+      glow: 1.0,
+      shaderIntensity: 1.0
+    },
+    spells: {
+      ice: { lightColor: '#7fd4ff', lightIntensity: 9 },
+      thunder: { lightColor: '#63b8ff', lightIntensity: 26 },
+      meteor: { lightColor: '#ff8a3c', lightIntensity: 16 },
+      beam: { lightColor: '#7fdcff', lightIntensity: 30 },
+      snare: { lightColor: '#a98bff', lightIntensity: 24 },
+      glacier: { lightColor: '#7fe2ff', lightIntensity: 14 }
+    },
     environment: {
       sunIntensity: 3.2,
       sunColor: '#fff2d8',
@@ -462,17 +571,17 @@ export const ENVIRONMENT_THEMES = {
       grassColorDark: '#274b17'
     },
     post: {
-      exposure: 1.0,
-      bloomStrength: 0.75,
-      bloomRadius: 0.4,
-      bloomThreshold: 0.85,
-      contrast: 1.05,
-      saturation: 1.1,
+      exposure: 1.05,
+      bloomStrength: 0.03,
+      bloomRadius: 0.6,
+      bloomThreshold: 0.88,
+      contrast: 1.12,
+      saturation: 1.08,
       temperature: -0.03,
       lift: -0.008,
       gain: 1.0,
-      vignette: 0.4,
-      chromaticAberration: 0.35,
+      vignette: 0.52,
+      chromaticAberration: 0.4,
       grain: 0.045
     }
   }
@@ -634,11 +743,38 @@ export function applyEnvironmentTheme(themeOrName) {
   const theme = typeof themeOrName === 'string' ? ENVIRONMENT_THEMES[themeOrName] : themeOrName;
   if (!theme) return false;
 
+  // 1. Reset ability spell lighting and global parameters to defaults first
+  // so no previous theme overrides leak or cause over-lighting
+  for (const element of ELEMENTS) {
+    if (DEFAULT_SETTINGS[element] && settings[element]) {
+      if (DEFAULT_SETTINGS[element].lightColor) {
+        settings[element].lightColor = DEFAULT_SETTINGS[element].lightColor;
+      }
+      if (DEFAULT_SETTINGS[element].lightIntensity !== undefined) {
+        settings[element].lightIntensity = DEFAULT_SETTINGS[element].lightIntensity;
+      }
+    }
+  }
+  if (DEFAULT_SETTINGS.global) {
+    applySettings(structuredClone(DEFAULT_SETTINGS.global), settings.global);
+  }
+
+  // 2. Apply theme's environment, post-processing, global multipliers, and spell lighting
   if (theme.environment) {
     applySettings(theme.environment, settings.environment);
   }
   if (theme.post) {
     applySettings(theme.post, settings.post);
+  }
+  if (theme.global) {
+    applySettings(theme.global, settings.global);
+  }
+  if (theme.spells) {
+    for (const [element, spellOverrides] of Object.entries(theme.spells)) {
+      if (settings[element] && spellOverrides) {
+        applySettings(spellOverrides, settings[element]);
+      }
+    }
   }
 
   try {
@@ -701,5 +837,18 @@ export function resetEnvironmentToDefaults() {
   }
   if (DEFAULT_SETTINGS.post) {
     applySettings(structuredClone(DEFAULT_SETTINGS.post), settings.post);
+  }
+  if (DEFAULT_SETTINGS.global) {
+    applySettings(structuredClone(DEFAULT_SETTINGS.global), settings.global);
+  }
+  for (const element of ELEMENTS) {
+    if (DEFAULT_SETTINGS[element] && settings[element]) {
+      if (DEFAULT_SETTINGS[element].lightColor) {
+        settings[element].lightColor = DEFAULT_SETTINGS[element].lightColor;
+      }
+      if (DEFAULT_SETTINGS[element].lightIntensity !== undefined) {
+        settings[element].lightIntensity = DEFAULT_SETTINGS[element].lightIntensity;
+      }
+    }
   }
 }
