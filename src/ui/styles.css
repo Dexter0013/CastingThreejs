@@ -67,11 +67,19 @@ body {
 }
 
 .loader__title {
-  margin: 22px 0 18px;
+  margin: 22px 0 6px;
   font-size: 26px;
   font-weight: 600;
   letter-spacing: 0.22em;
   text-transform: uppercase;
+}
+
+.loader__theme {
+  margin: 0 0 20px;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ui-text-dim);
 }
 
 .loader__sigil {

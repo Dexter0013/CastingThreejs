@@ -489,6 +489,13 @@ export class LoadingScreen {
     this.element = document.getElementById('loader');
     this.fill = document.getElementById('loader-fill');
     this.status = document.getElementById('loader-status');
+    this.theme = document.getElementById('loader-theme');
+  }
+
+  setTheme(themeName) {
+    if (this.theme && themeName) {
+      this.theme.textContent = `Theme: ${themeName}`;
+    }
   }
 
   setProgress(ratio, message) {

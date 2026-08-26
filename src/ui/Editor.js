@@ -1,6 +1,19 @@
 import GUI from 'lil-gui';
 import { settings, CAST_ANIMATIONS } from '../config/settings.js';
 import { PresetManager } from './PresetManager.js';
+import {
+  THEME_NAMES,
+  applyEnvironmentTheme,
+  applyRandomEnvironment,
+  getRandomPower,
+  randomizeAllPowers,
+  isRandomizeOnReloadEnabled,
+  setRandomizeOnReloadEnabled,
+  resetEnvironmentToDefaults,
+  advanceSessionThemeChain,
+  resetSessionChain,
+  getSessionReloadState
+} from '../config/environmentThemes.js';
 
 /**
  * Real-time VFX editor.
@@ -19,7 +32,7 @@ import { PresetManager } from './PresetManager.js';
  */
 export class Editor {
   /**
-   * @param {object} hooks { onClear, onToast }
+   * @param {object} hooks { onClear, onToast, onSelectAbility, getSelectedAbility }
    */
   constructor(hooks = {}) {
     this.hooks = hooks;
@@ -30,6 +43,7 @@ export class Editor {
 
     this._presetState = { name: 'My preset', selected: this.presets.names[0] ?? '' };
 
+    this._buildRandomizer();
     this._buildPresets();
     this._buildGlobal();
     this._buildAim();
@@ -100,6 +114,112 @@ export class Editor {
   /* ------------------------------------------------------------------ */
   /* folders                                                             */
   /* ------------------------------------------------------------------ */
+
+  _buildRandomizer() {
+    const folder = this.gui.addFolder('🎲 Randomizer & Themes');
+    const sessionState = getSessionReloadState();
+    const state = {
+      randomizeOnReload: isRandomizeOnReloadEnabled(),
+      theme: sessionState.isInitial ? 'Classic Arcane' : 'Crimson Eclipse'
+    };
+
+    folder
+      .add(state, 'randomizeOnReload')
+      .name('Randomize on reload')
+      .onChange((val) => {
+        setRandomizeOnReloadEnabled(val);
+        this.hooks.onToast?.(val ? '🎲 Chain on reload: ENABLED' : '🔒 Chain on reload: DISABLED');
+      });
+
+    let themeController = folder
+      .add(state, 'theme', THEME_NAMES)
+      .name('Preset theme')
+      .onChange((themeName) => {
+        applyEnvironmentTheme(themeName);
+        this.refresh();
+        this.hooks.onToast?.(`🎨 Theme: ${themeName}`);
+      });
+
+    folder
+      .add(
+        {
+          nextChain: () => {
+            const step = advanceSessionThemeChain();
+            state.theme = step.themeName;
+            themeController.setValue(step.themeName);
+            this.hooks.onSelectAbility?.(step.element);
+            this.refresh();
+            this.hooks.onToast?.(`⏭️ Chain Step (#${step.reloadCount}): ${step.themeName} + ${step.element.toUpperCase()}`);
+          }
+        },
+        'nextChain'
+      )
+      .name('⏭️ Next Chain Theme');
+
+    folder
+      .add(
+        {
+          randomEnv: () => {
+            const res = applyRandomEnvironment();
+            state.theme = res.name;
+            themeController.setValue(res.name);
+            this.refresh();
+            this.hooks.onToast?.(`🎲 Environment: ${res.name}`);
+          }
+        },
+        'randomEnv'
+      )
+      .name('🎲 Randomize Env');
+
+    folder
+      .add(
+        {
+          randomPower: () => {
+            const element = getRandomPower();
+            this.hooks.onSelectAbility?.(element);
+            this.refresh();
+            this.hooks.onToast?.(`⚡ Power: ${element.toUpperCase()} armed`);
+          }
+        },
+        'randomPower'
+      )
+      .name('⚡ Randomize Power');
+
+    folder
+      .add(
+        {
+          randomAll: () => {
+            const res = applyRandomEnvironment();
+            state.theme = res.name;
+            themeController.setValue(res.name);
+            const element = randomizeAllPowers();
+            this.hooks.onSelectAbility?.(element);
+            this.refresh();
+            this.hooks.onToast?.(`✨ Randomized: ${res.name} + ${element.toUpperCase()}`);
+          }
+        },
+        'randomAll'
+      )
+      .name('✨ Randomize Everything');
+
+    folder
+      .add(
+        {
+          resetBase: () => {
+            resetSessionChain();
+            state.theme = 'Classic Arcane';
+            themeController.setValue('Classic Arcane');
+            this.hooks.onSelectAbility?.('ice');
+            this.refresh();
+            this.hooks.onToast?.('⏮️ Base Theme restored (Session reset to start)');
+          }
+        },
+        'resetBase'
+      )
+      .name('⏮️ Reset to Base Theme');
+
+    this.randomizerFolder = folder;
+  }
 
   _buildPresets() {
     const folder = this.gui.addFolder('Presets');

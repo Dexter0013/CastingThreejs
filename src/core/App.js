@@ -34,6 +34,10 @@ import { EnemySystem } from '../enemies/EnemySystem.js';
 import { SoundManager } from '../audio/SoundManager.js';
 
 import { settings, ELEMENTS } from '../config/settings.js';
+import {
+  isRandomizeOnReloadEnabled,
+  advanceSessionThemeChain
+} from '../config/environmentThemes.js';
 
 
 /**
@@ -150,7 +154,27 @@ export class App {
     this.hud.setPlayerHealth(this.playerHealth, this.playerMaxHealth);
 
     this._bindEvents();
-    this.selectAbility(ELEMENTS[0], { silent: true });
+
+    // Check if reload chaining is enabled:
+    // 1. Initial game boot -> keeps base theme ('Classic Arcane') and Frost Lance ('ice')
+    // 2. Subsequent reloads -> cycles through themed biomes and powers in the chain
+    if (isRandomizeOnReloadEnabled()) {
+      this.currentThemeInfo = advanceSessionThemeChain();
+      this.selectAbility(this.currentThemeInfo.element, { silent: true });
+      this.loading.setTheme(this.currentThemeInfo.themeName);
+      if (this.currentThemeInfo.isInitial) {
+        console.log(`[Boot] First game load — Kept Base Theme ("Classic Arcane") and Frost Lance. Subsequent reloads will trigger theme chains.`);
+      } else {
+        console.log(`[Boot] Reload #${this.currentThemeInfo.reloadCount} — Theme Chain active: "${this.currentThemeInfo.themeName}", Equipped Spell: "${this.currentThemeInfo.element.toUpperCase()}"`);
+      }
+    } else {
+      this.currentThemeInfo = {
+        themeName: 'Classic Arcane',
+        element: ELEMENTS[0]
+      };
+      this.loading.setTheme('Classic Arcane');
+      this.selectAbility(ELEMENTS[0], { silent: true });
+    }
 
     this._focusPoint = new Vector3();
   }
@@ -322,7 +346,9 @@ export class App {
       const { Editor } = await import('../ui/Editor.js');
       this.editor = new Editor({
         onClear: () => this.clearEffects(),
-        onToast: (message) => this.hud.showToast(message)
+        onToast: (message) => this.hud.showToast(message),
+        onSelectAbility: (element) => this.selectAbility(element),
+        getSelectedAbility: () => this.element
       });
     }
     this.editor.toggle();
@@ -442,8 +468,10 @@ export class App {
   /** Load assets, warm the shader cache, then start the loop. */
   async load() {
     const assets = new AssetLoader();
+    const themeName = this.currentThemeInfo?.themeName || 'Classic Arcane';
+    this.loading.setTheme(themeName);
 
-    this.loading.setProgress(0.05, 'Loading environment…');
+    this.loading.setProgress(0.05, `Loading ${themeName} environment…`);
     await this.environment.loadEnvironment();
     frame.uEnvMap.value = this.environment.equirect;
 

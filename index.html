@@ -22,6 +22,16 @@
           <span class="sigil sigil--d"></span>
         </div>
         <h1 class="loader__title">Arcane Mage</h1>
+        <p class="loader__theme" id="loader-theme"></p>
+        <script>
+          (function() {
+            try {
+              var t = sessionStorage.getItem('frost-sandbox.activeTheme') || localStorage.getItem('frost-sandbox.activeTheme') || 'Classic Arcane';
+              var el = document.getElementById('loader-theme');
+              if (el && t) el.textContent = 'Theme: ' + t;
+            } catch(e) {}
+          })();
+        </script>
         <div class="loader__bar"><i id="loader-fill"></i></div>
         <p class="loader__status" id="loader-status">Growing the crystals…</p>
       </div>
