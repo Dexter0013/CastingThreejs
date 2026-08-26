@@ -1760,7 +1760,7 @@ export const settings = {
     floorRoughness: 0.92,
     floorSheen: 0.06,
     floorPool: 0.5,
-    // Brown mud & leaves PBR terrain \u2014 Polyhaven brown_mud_leaves_01 (CC0).
+    // Brown mud & leaves PBR terrain — Polyhaven brown_mud_leaves_01 (CC0).
     // `floorTextureScale` = metres per tile (lower = more repetitions = more
     // detail visible up close). At 4 m/tile a 1k texture has ~4 px/cm.
     floorTexture: true,
