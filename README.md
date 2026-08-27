@@ -22,8 +22,18 @@ The arena dynamically morphs across **9 curated environmental themes**, each alt
 | **🌌 Abyssal Twilight** | Celestial deep violet cosmic haze & ethereal shadows | Ethereal astral violet nebula mist (`#6f4fa6`) & stardust | Astral amethyst glacier crown (`1.68m`), `2.9m` deep void amethyst spears, cosmic pulsar ray |
 | **🌸 Celestial Dawn** | Serene pastel morning with rose quartz haze & gold sun | Soft pastel rose morning mist (`#dcaebc`) & sunbeam motes | Delicate `2.65m` rose quartz crystals, `1.42m` crystalline diadem crown, soft dawn aurora beam |
 
-### Theme Lifecycle & Features
-- **Smart Session Reload Chain:** Initial boot always starts on authentic `Classic Arcane`. Subsequent page reloads advance in sequence through all 8 biomes and loop seamlessly back to Classic.
+### Theme Lifecycle & Sequence Reload Chain
+- **Curated Progression Order:** On initial session boot, the game begins in the base **Classic Arcane** grove. Subsequent page reloads advance strictly through the curated sequence and loop back seamlessly:
+  1. ✨ **Classic Arcane** *(Base Initial Boot)*
+  2. 🌅 **Golden Solstice** *(Radiant Sun & Storm Lance)*
+  3. 🌸 **Celestial Dawn** *(Pastel Sunrise & Frost Lance)*
+  4. ❄️ **Midnight Arctic** *(Glacial Blizzard & Glacial Crown)*
+  5. 🌒 **Crimson Eclipse** *(Blood Moon & Cinder Fall)*
+  6. 🌋 **Volcanic Caldera** *(Molten Caldera & Voltaic Snare)*
+  7. 🌿 **Emerald Necropolis** *(Toxic Grove & Nova Beam)*
+  8. ⚡ **Cyber Neon Void** *(Synthwave Void & Storm Lance)*
+  9. 🌌 **Abyssal Twilight** *(Cosmic Void & Glacial Crown)*
+  10. ✨ **Classic Arcane** *(Return to Base)*
 - **Immediate Loading Screen Sync:** The minimalist loading screen displays the active theme name immediately on reload with zero flicker.
 - **Live VFX Editor Integration:** Includes one-click **Randomize Environment & Powers** and **Reset Environment to Defaults** controls inside the editor (**G** key).
 

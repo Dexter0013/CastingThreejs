@@ -1249,24 +1249,34 @@ export const ENVIRONMENT_THEMES = {
 export const THEME_NAMES = Object.keys(ENVIRONMENT_THEMES);
 
 /**
- * Curated sequence of themed biomes and powers for reload chains.
- * Cycles through unique environments and finishes by returning back to the base theme!
+ * Curated sequence of themed biomes and powers for reload chains:
+ * 1. ✨ Classic Arcane (Base Boot)
+ * 2. 🌅 Golden Solstice
+ * 3. 🌸 Celestial Dawn
+ * 4. ❄️ Midnight Arctic
+ * 5. 🌒 Crimson Eclipse
+ * 6. 🌋 Volcanic Caldera
+ * 7. 🌿 Emerald Necropolis
+ * 8. ⚡ Cyber Neon Void
+ * 9. 🌌 Abyssal Twilight
+ * 10. ✨ (Transitions back to Classic Arcane)
  */
 export const THEME_CHAIN = [
-  { theme: 'Crimson Eclipse', element: 'meteor', label: 'Blood Moon & Cinder Fall' },
-  { theme: 'Midnight Arctic', element: 'glacier', label: 'Glacial Blizzard & Crown' },
-  { theme: 'Emerald Necropolis', element: 'beam', label: 'Toxic Grove & Nova Beam' },
-  { theme: 'Golden Solstice', element: 'thunder', label: 'Sunset Dusk & Storm Lance' },
-  { theme: 'Cyber Neon Void', element: 'snare', label: 'Synthwave Void & Voltaic Snare' },
-  { theme: 'Volcanic Caldera', element: 'meteor', label: 'Molten Caldera & Cinder Fall' },
-  { theme: 'Abyssal Twilight', element: 'glacier', label: 'Cosmic Violet & Glacial Crown' },
-  { theme: 'Celestial Dawn', element: 'beam', label: 'Pastel Sunrise & Nova Beam' },
-  { theme: 'Classic Arcane', element: 'ice', label: 'Base Theme (Classic Arcane & Frost Lance)' }
+  { theme: 'Golden Solstice', element: 'thunder', label: '🌅 Golden Solstice (Radiant Sun & Storm Lance)' },
+  { theme: 'Celestial Dawn', element: 'ice', label: '🌸 Celestial Dawn (Pastel Sunrise & Frost Lance)' },
+  { theme: 'Midnight Arctic', element: 'glacier', label: '❄️ Midnight Arctic (Glacial Blizzard & Glacial Crown)' },
+  { theme: 'Crimson Eclipse', element: 'meteor', label: '🌒 Crimson Eclipse (Blood Moon & Cinder Fall)' },
+  { theme: 'Volcanic Caldera', element: 'snare', label: '🌋 Volcanic Caldera (Molten Caldera & Voltaic Snare)' },
+  { theme: 'Emerald Necropolis', element: 'beam', label: '🌿 Emerald Necropolis (Toxic Grove & Nova Beam)' },
+  { theme: 'Cyber Neon Void', element: 'thunder', label: '⚡ Cyber Neon Void (Synthwave Void & Storm Lance)' },
+  { theme: 'Abyssal Twilight', element: 'glacier', label: '🌌 Abyssal Twilight (Cosmic Void & Glacial Crown)' },
+  { theme: 'Classic Arcane', element: 'ice', label: '✨ Classic Arcane (Base Fantasy Grove & Frost Lance)' }
 ];
 
 const SESSION_KEY_LOADED = 'frost-sandbox.sessionLoaded';
 const SESSION_KEY_CHAIN_INDEX = 'frost-sandbox.chainIndex';
 const SESSION_KEY_RELOAD_COUNT = 'frost-sandbox.reloadCount';
+const SESSION_KEY_ACTIVE_THEME = 'frost-sandbox.activeTheme';
 
 /**
  * Inspect the current session reload state.
@@ -1289,7 +1299,7 @@ export function getSessionReloadState() {
 /**
  * Handle game load lifecycle:
  * - On initial load: keeps the base theme ('Classic Arcane') and default spell ('ice').
- * - On subsequent reloads: triggers the next theme in the sequence chain.
+ * - On subsequent reloads: triggers the next theme in the Light -> Dawn -> Night -> Default sequence.
  */
 export function advanceSessionThemeChain() {
   try {
@@ -1302,6 +1312,7 @@ export function advanceSessionThemeChain() {
       sessionStorage.setItem(SESSION_KEY_LOADED, 'true');
       sessionStorage.setItem(SESSION_KEY_RELOAD_COUNT, '0');
       sessionStorage.setItem(SESSION_KEY_CHAIN_INDEX, '0');
+      sessionStorage.setItem(SESSION_KEY_ACTIVE_THEME, 'Classic Arcane');
       applyEnvironmentTheme('Classic Arcane');
       const baseTheme = ENVIRONMENT_THEMES['Classic Arcane'];
       return {
@@ -1323,6 +1334,7 @@ export function advanceSessionThemeChain() {
 
     sessionStorage.setItem(SESSION_KEY_RELOAD_COUNT, String(count));
     sessionStorage.setItem(SESSION_KEY_CHAIN_INDEX, String(nextIndex));
+    sessionStorage.setItem(SESSION_KEY_ACTIVE_THEME, step.theme);
 
     applyEnvironmentTheme(step.theme);
     const loadedTheme = ENVIRONMENT_THEMES[step.theme];
